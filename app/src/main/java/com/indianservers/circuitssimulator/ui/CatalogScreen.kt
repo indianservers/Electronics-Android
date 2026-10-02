@@ -25,7 +25,12 @@ import com.indianservers.circuitssimulator.ui.canvas.*
 @Composable
 fun ComponentThumbnail(kind: Kind, modifier: Modifier = Modifier, component: PlacedComponent? = null) {
     Canvas(modifier) {
-        val s=(size.minDimension/175f)
+        val s=if(kind.isBoard) {
+            val pins=BoardRegistry.boards.getValue(kind).pins.size
+            kotlin.math.min(size.width/250f,size.height/(kotlin.math.max(220f,pins/2f*13f+45f)))
+        } else if(kind in IcParts.pinNames && IcParts.pinNames.getValue(kind).size>=16)
+            kotlin.math.min(size.width/205f,size.height/240f)
+        else size.minDimension/175f
         scale(s,s,pivot=androidx.compose.ui.geometry.Offset(size.width/2,size.height/2)) {
             drawComponent((component ?: PlacedComponent(kind=kind,reference="",x=0f,y=0f)).copy(x=size.width/2,y=size.height/2),false,
                 if(kind==Kind.LED || kind==Kind.LAMP) .45f else 0f)
@@ -34,22 +39,21 @@ fun ComponentThumbnail(kind: Kind, modifier: Modifier = Modifier, component: Pla
 }
 
 @Composable
-fun CatalogScreen(recent: List<Kind>,onBack:()->Unit,onChoose:(Kind)->Unit,onClearRecent:()->Unit) {
+fun CatalogScreen(recent: List<Kind>,favorites:Set<Kind>,onBack:()->Unit,
+                  onChoose:(Kind)->Unit,onClearRecent:()->Unit,onToggleFavorite:(Kind)->Unit) {
     var query by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableStateOf("Basic") }
+    var category by rememberSaveable { mutableStateOf("Common") }
     var infoKind by remember { mutableStateOf<Kind?>(null) }
-    val categories=listOf("Basic","Sources","Semiconductors","Sensors","Outputs","Measurement")
-    val basicOrder=listOf(Kind.BATTERY,Kind.RESISTOR,Kind.CAPACITOR,Kind.INDUCTOR,Kind.FUSE,
-        Kind.DIODE,Kind.LED,Kind.NPN_BJT,Kind.SWITCH,Kind.LAMP,Kind.GROUND,Kind.AMMETER,Kind.VOLTMETER)
-    val catalog=if(query.isNotBlank()) ComponentRegistry.definitions.values.filter { it.kind!=Kind.JUNCTION }
-        else if(category=="Basic") basicOrder.mapNotNull(ComponentRegistry.definitions::get)
-        else ComponentRegistry.definitions.values.filter { it.kind.category==category }
-    val definitions=catalog.filter { def ->
-        query.isBlank() || def.kind.title.contains(query,true) || def.description.contains(query,true) ||
-            def.kind.name.contains(query,true) || (def.datasheet.partNumber?.contains(query,true)==true) ||
-            (query.equals("cap",true) && def.kind in listOf(Kind.CAPACITOR,Kind.ELECTROLYTIC)) ||
-            (query.equals("res",true) && def.kind==Kind.RESISTOR)
-    }.let { if(query.isNotBlank()) it.sortedBy { def -> def.kind.title } else it }
+    val categories=listOf("Common","Favorites","Recent")+ComponentRegistry.categories
+    val definitions=remember(query,category,recent,favorites) {
+        if(query.isNotBlank()) ComponentRegistry.search(query).sortedBy { it.kind.title }
+        else when(category) {
+            "Common" -> ComponentRegistry.common
+            "Favorites" -> favorites.mapNotNull(ComponentRegistry.definitions::get)
+            "Recent" -> recent.mapNotNull(ComponentRegistry.definitions::get)
+            else -> ComponentRegistry.search("",category)
+        }
+    }
     Column(Modifier.fillMaxSize().background(Navy).statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically) {
             Text("‹",Modifier.semantics { contentDescription="Back to circuit";role=Role.Button }
@@ -83,12 +87,17 @@ fun CatalogScreen(recent: List<Kind>,onBack:()->Unit,onChoose:(Kind)->Unit,onCle
                     Column(Modifier.padding(8.dp),verticalArrangement=Arrangement.SpaceBetween) {
                         Box(Modifier.fillMaxWidth().height(58.dp)) {
                             ComponentThumbnail(def.kind,Modifier.fillMaxSize())
+                            Text(if(def.kind in favorites) "★" else "☆",
+                                Modifier.align(Alignment.TopStart).clickable { onToggleFavorite(def.kind) }
+                                    .padding(2.dp),color=Color(0xFFFFCB69),fontSize=15.sp)
                             Text("ⓘ",Modifier.align(Alignment.TopEnd)
                                 .semantics { contentDescription="About ${def.kind.title}";role=Role.Button }
                                 .clickable { infoKind=def.kind }
                                 .padding(2.dp),color=Muted,fontSize=12.sp)
                         }
                         Text(def.kind.title,color=TextIce,fontSize=13.sp,maxLines=1)
+                        Text(if(def.supportStatus==ComponentSupportStatus.SUPPORTED) "✓ Supported" else "≈ Simplified model",
+                            color=Mint,fontSize=9.sp,maxLines=1)
                         Text(def.description,color=Muted,fontSize=9.sp,maxLines=2,lineHeight=11.sp)
                     }
                 }
@@ -123,11 +132,15 @@ fun CatalogScreen(recent: List<Kind>,onBack:()->Unit,onChoose:(Kind)->Unit,onCle
                 Text(def.description)
                 Text("Terminals: ${PlacedComponent(kind=kind,reference="",x=0f,y=0f).terminalCount}")
                 Text("Model accuracy: ${def.modelAccuracy.name.replace('_',' ')}")
+                Text("Support: ${def.supportStatus.name.replace('_',' ')}")
+                Text(if(kind in favorites) "★ Favorite" else "☆ Add to favorites",
+                    Modifier.clickable { onToggleFavorite(kind) }.padding(vertical=5.dp),color=Blue)
                 if(def.parameters.isNotEmpty()) Text("Parameters: ${def.parameters.joinToString { it.label }}")
                 def.datasheet.partNumber?.let { Text("Part: $it") }
                 def.datasheet.manufacturer?.let { Text("Manufacturer: $it") }
                 def.datasheet.packageName?.let { Text("Package: $it") }
                 def.datasheet.sourceNotes?.let { Text(it) }
+                if(def.limitations.isNotEmpty()) Text("Limits: ${def.limitations.joinToString()}")
             } },confirmButton={TextButton(onClick={infoKind=null}) { Text("Close") }})
     }
 }

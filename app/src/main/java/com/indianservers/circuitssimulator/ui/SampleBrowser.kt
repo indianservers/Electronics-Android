@@ -37,6 +37,9 @@ private val sampleEntries=listOf(
     SampleEntry("RC Charging","Transient","Capacitor charging after a switch",SampleCircuits::rc),
     SampleEntry("RL Rise","Transient","Inductor current building over time",SampleCircuits::rl),
     SampleEntry("Function Generator","Transient","Time-varying source and waveform",SampleCircuits::generator),
+    SampleEntry("Clocked Inverter","Digital","Clock, logic gate, resistor, and LED",SampleCircuits::digitalInverter),
+    SampleEntry("555 Counter RGB","Digital","Timer drives a counter and three LED colors",SampleCircuits::timerCounterRgb),
+    SampleEntry("Coupled Transformer","Transient","Sine source drives two magnetically coupled windings",SampleCircuits::transformerDemo),
     SampleEntry("RC Low-pass","Filters","Resistor-capacitor frequency response",SampleCircuits::rcLowPass),
     SampleEntry("RC High-pass","Filters","Capacitor-resistor frequency response",SampleCircuits::rcHighPass),
     SampleEntry("RL Low-pass","Filters","Inductor-resistor frequency response",SampleCircuits::rlLowPass),
@@ -45,14 +48,26 @@ private val sampleEntries=listOf(
     SampleEntry("Fuse Fault","Faults","A fuse opens after overload",SampleCircuits::fuseFault),
     SampleEntry("Op-amp ×10","Analog","Non-inverting amplifier",{SampleCircuits.nonInvertingOpAmp()}),
     SampleEntry("NPN Switch","Analog","Bipolar transistor control",{SampleCircuits.npnSwitch()}),
-    SampleEntry("NMOS Switch","Analog","MOSFET load switching",{SampleCircuits.nmosSwitch()})
+    SampleEntry("NMOS Switch","Analog","MOSFET load switching",{SampleCircuits.nmosSwitch()}),
+    SampleEntry("Blinking LED","Firmware","Arduino subset blinks D13",SampleCircuits::blinkingLed),
+    SampleEntry("Push Button LED","Firmware","digitalRead drives an LED",SampleCircuits::buttonLed),
+    SampleEntry("Traffic Light","Firmware","Timed three-lamp firmware",SampleCircuits::trafficLight),
+    SampleEntry("PWM Fade","Firmware","analogWrite waveform on D9",SampleCircuits::pwmFade),
+    SampleEntry("Analog Read","Firmware","Potentiometer to ADC and Serial",SampleCircuits::analogReadLab),
+    SampleEntry("Servo Control","Firmware","ADC to servo pulses",SampleCircuits::servoControl),
+    SampleEntry("Temperature Monitor","Firmware","LM35 to Serial",SampleCircuits::temperatureMonitor),
+    SampleEntry("I2C Scanner","Firmware","Wire scan of connected devices",SampleCircuits::i2cLab),
+    SampleEntry("UART Link","Firmware","Two Unos exchange serial bytes",SampleCircuits::uartLink),
+    SampleEntry("ESP32 OLED","Firmware","I²C OLED on GPIO21/22",SampleCircuits::esp32Oled),
+    SampleEntry("Pico ADC","Firmware","GP26 analog read on Pico",SampleCircuits::picoAdcPwm),
+    SampleEntry("NodeMCU LDR","Firmware","A0 light sensor on NodeMCU",SampleCircuits::nodeMcuLdr)
 )
 
 @Composable
 fun SampleBrowser(model:SimulatorViewModel) {
     var query by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf("All") }
-    val categories=listOf("All","Beginner","Transient","Filters","Sensors","Analog","Faults")
+    val categories=listOf("All","Beginner","Transient","Filters","Sensors","Analog","Digital","Faults","Firmware")
     val matches=sampleEntries.filter { entry ->
         (category=="All" || entry.category==category) &&
             (query.isBlank() || entry.title.contains(query,true) ||

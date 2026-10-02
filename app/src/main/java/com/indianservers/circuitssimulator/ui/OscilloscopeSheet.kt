@@ -12,6 +12,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
@@ -54,8 +56,11 @@ fun OscilloscopeSheet(state:SimulatorState,model:SimulatorViewModel) {
     var cursorA by rememberSaveable { mutableFloatStateOf(.25f) }
     var cursorB by rememberSaveable { mutableFloatStateOf(.75f) }
     var showFft by rememberSaveable { mutableStateOf(false) }
+    var showXy by rememberSaveable { mutableStateOf(false) }
     val ch1=remember(state.transient,state.scopeCh1) { channelTrace(state,state.scopeCh1,"CH1") }
     val ch2=remember(state.transient,state.scopeCh2) { channelTrace(state,state.scopeCh2,"CH2") }
+    val ch3=remember(state.transient,state.scopeCh3) { channelTrace(state,state.scopeCh3,"CH3") }
+    val ch4=remember(state.transient,state.scopeCh4) { channelTrace(state,state.scopeCh4,"CH4") }
     val ch1Samples=ch1?.samples.orEmpty()
     val firstTime=ch1Samples.firstOrNull()?.timeSeconds ?: 0.0
     val lastTime=ch1Samples.lastOrNull()?.timeSeconds ?: 1.0
@@ -92,11 +97,14 @@ fun OscilloscopeSheet(state:SimulatorState,model:SimulatorViewModel) {
                 Text("CSV",Modifier.clickable {
                     val frames=state.transient?.frames.orEmpty()
                     if(frames.isNotEmpty()) {
-                        pendingCsv=AnalysisCsv.scope(frames,state.scopeCh1,state.scopeCh2)
+                        pendingCsv=AnalysisCsv.scope(frames,listOf(state.scopeCh1,state.scopeCh2,
+                            state.scopeCh3,state.scopeCh4))
                         export.launch("scope-trace.csv")
                     }
                 }.padding(7.dp),color=Blue,fontSize=12.sp)
                 Text(if(showFft) "Trace" else "FFT",Modifier.clickable { showFft=!showFft }.padding(7.dp),
+                    color=Blue,fontSize=12.sp)
+                Text(if(showXy) "Time" else "XY",Modifier.clickable { showXy=!showXy }.padding(7.dp),
                     color=Blue,fontSize=12.sp)
                 Text("✕",Modifier.clickable { model.showScope(false) }.padding(7.dp),color=Muted)
             }
@@ -106,8 +114,10 @@ fun OscilloscopeSheet(state:SimulatorState,model:SimulatorViewModel) {
                 Text("Disconnect",Modifier.clickable { model.detachScope(1) },color=Muted,fontSize=10.sp)
             }
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Text("Trigger: ${listOf("Off","Rising","Falling")[triggerMode]}",
+                Text("Trigger: ${listOf("Auto","Rising","Falling")[triggerMode]}",
                     Modifier.clickable { triggerMode=(triggerMode+1)%3 }.padding(5.dp),color=Blue,fontSize=11.sp)
+                Text("Auto-scale",Modifier.clickable { triggerMode=0;cursorA=.25f;cursorB=.75f }.padding(5.dp),
+                    color=Blue,fontSize=11.sp)
                 if(triggerMode!=0) {
                     Slider(triggerLevel,{triggerLevel=it},Modifier.weight(1f))
                     Text("${"%.2f".format(java.util.Locale.US,threshold)} V",color=Muted,fontSize=10.sp)
@@ -115,8 +125,10 @@ fun OscilloscopeSheet(state:SimulatorState,model:SimulatorViewModel) {
             }
             if(triggerMode!=0) Text(triggerTime?.let { "Triggered at ${"%.2f".format(java.util.Locale.US,it*1000)} ms" }
                 ?: "No crossing at this level",color=Muted,fontSize=10.sp)
-            SignalChart(ch1,state.elapsedSeconds,
-                Modifier.fillMaxWidth().height(110.dp),Mint,visibleWindow,firstCursor to secondCursor,triggerTime)
+            if(showXy) XyScopeChart(ch1Samples,ch2?.samples.orEmpty(),
+                Modifier.fillMaxWidth().height(170.dp)) else
+                SignalChart(ch1,state.elapsedSeconds,
+                    Modifier.fillMaxWidth().height(110.dp),Mint,visibleWindow,firstCursor to secondCursor,triggerTime)
             ch1?.let { trace ->
                 SignalMeasurements.analyze(trace.samples)?.let { stats ->
                     ScopeStatistics("CH1",stats)
@@ -150,8 +162,42 @@ fun OscilloscopeSheet(state:SimulatorState,model:SimulatorViewModel) {
             ch2?.let { trace ->
                 SignalMeasurements.analyze(trace.samples)?.let { ScopeStatistics("CH2",it) }
             }
+            listOf(Triple(3,state.scopeCh3,ch3),Triple(4,state.scopeCh4,ch4)).forEach { (number,probe,trace) ->
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    Text(probeLabel(state,probe,"CH$number"),color=if(number==3) Supply else Color(0xFFFF8AC8),fontSize=10.sp)
+                    Text("Disconnect",Modifier.clickable { model.detachScope(number) },color=Muted,fontSize=10.sp)
+                }
+                SignalChart(trace,state.elapsedSeconds,Modifier.fillMaxWidth().height(74.dp),
+                    if(number==3) Supply else Color(0xFFFF8AC8),visibleWindow)
+            }
         }
     }
+}
+
+@Composable
+private fun XyScopeChart(x:List<SignalSample>,y:List<SignalSample>,modifier:Modifier=Modifier) {
+    Canvas(modifier.background(Panel,RoundedCornerShape(9.dp)).padding(12.dp)) {
+        val count=min(x.size,y.size)
+        if(count<2) return@Canvas
+        val minX=x.take(count).minOf { it.value };val maxX=x.take(count).maxOf { it.value }
+        val minY=y.take(count).minOf { it.value };val maxY=y.take(count).maxOf { it.value }
+        val spanX=(maxX-minX).coerceAtLeast(1e-9)
+        val spanY=(maxY-minY).coerceAtLeast(1e-9)
+        drawLine(Muted.copy(alpha=.5f),Offset(0f,size.height/2),Offset(size.width,size.height/2),1f)
+        drawLine(Muted.copy(alpha=.5f),Offset(size.width/2,0f),Offset(size.width/2,size.height),1f)
+        val path=Path()
+        for(index in 0 until count) {
+            val px=((x[index].value-minX)/spanX*size.width).toFloat()
+            val py=(size.height-(y[index].value-minY)/spanY*size.height).toFloat()
+            if(index==0) path.moveTo(px,py) else path.lineTo(px,py)
+        }
+        drawPath(path,Mint,style=androidx.compose.ui.graphics.drawscope.Stroke(2.5f))
+    }
+    Text("X: CH1 ${"%.2f".format(java.util.Locale.US,x.minOfOrNull { it.value } ?: 0.0)}–"+
+        "${"%.2f".format(java.util.Locale.US,x.maxOfOrNull { it.value } ?: 0.0)} V    "+
+        "Y: CH2 ${"%.2f".format(java.util.Locale.US,y.minOfOrNull { it.value } ?: 0.0)}–"+
+        "${"%.2f".format(java.util.Locale.US,y.maxOfOrNull { it.value } ?: 0.0)} V",
+        color=Muted,fontSize=10.sp)
 }
 
 @Composable

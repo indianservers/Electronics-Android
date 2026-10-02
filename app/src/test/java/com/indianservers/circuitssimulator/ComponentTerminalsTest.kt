@@ -37,4 +37,16 @@ class ComponentTerminalsTest {
         assertTrue(terminalPosition(rotated,0).y < 400f)
         assertTrue(terminalPosition(rotated,1).y > 400f)
     }
+
+    @Test fun ledPinsStayOnSeparateLeadEndsWhenResizedAndRotated() {
+        val led=PlacedComponent(kind=Kind.LED,reference="D1",x=300f,y=400f,sizeScale=1.5f)
+        assertEquals(300f-29f*1.5f,terminalPosition(led,0).x,.001f)
+        assertEquals(300f+29f*1.5f,terminalPosition(led,1).x,.001f)
+        assertEquals(400f+62f*1.5f,terminalPosition(led,0).y,.001f)
+        assertEquals(terminalPosition(led,0).y,terminalPosition(led,1).y,.001f)
+        val rotated=led.copy(rotation=90)
+        assertEquals(300f-62f*1.5f,terminalPosition(rotated,0).x,.001f)
+        assertEquals(300f-62f*1.5f,terminalPosition(rotated,1).x,.001f)
+        assertTrue(terminalPosition(rotated,0).y<terminalPosition(rotated,1).y)
+    }
 }

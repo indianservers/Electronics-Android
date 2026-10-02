@@ -4,6 +4,18 @@ object SampleCircuits {
     private fun wire(a: PlacedComponent, ai: Int, b: PlacedComponent, bi: Int) =
         Wire(start = TerminalRef(a.id, ai), end = TerminalRef(b.id, bi))
 
+    fun digitalInverter():Circuit {
+        val clock=PlacedComponent(kind=Kind.CLOCK,reference="CLK1",x=170f,y=450f)
+        val gate=PlacedComponent(kind=Kind.NOT_GATE,reference="U1",x=440f,y=450f)
+        val resistor=PlacedComponent(kind=Kind.RESISTOR,reference="R1",x=690f,y=450f,
+            parameters=mapOf("resistance" to 330.0))
+        val led=PlacedComponent(kind=Kind.LED,reference="D1",x=900f,y=480f)
+        val ground=PlacedComponent(kind=Kind.GROUND,reference="GND1",x=700f,y=740f)
+        return Circuit("Clocked Inverter",listOf(clock,gate,resistor,led,ground),listOf(
+            wire(clock,0,gate,0),wire(gate,1,resistor,0),wire(resistor,1,led,0),
+            wire(led,1,ground,0)))
+    }
+
     fun lightDivider(): Circuit {
         val source=PlacedComponent(kind=Kind.BATTERY,reference="B1",x=170f,y=530f,
             parameters=mapOf("voltage" to 5.0))
@@ -107,6 +119,21 @@ object SampleCircuits {
         ))
     }
 
+    fun blinkingLed(): Circuit {
+        return com.indianservers.circuitssimulator.firmware.FirmwareExamples.blinkCircuit()
+    }
+    fun buttonLed():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.buttonCircuit()
+    fun trafficLight():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.trafficCircuit()
+    fun servoControl():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.servoCircuit()
+    fun temperatureMonitor():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.temperatureCircuit()
+    fun analogReadLab():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.analogCircuit()
+    fun pwmFade():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.pwmCircuit()
+    fun i2cLab():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.i2cCircuit()
+    fun uartLink():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.uartPairCircuit()
+    fun esp32Oled():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.esp32OledCircuit()
+    fun picoAdcPwm():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.picoAdcCircuit()
+    fun nodeMcuLdr():Circuit=com.indianservers.circuitssimulator.firmware.FirmwareExamples.nodeMcuLdrCircuit()
+
     fun lamp(): Circuit {
         val battery = PlacedComponent(kind = Kind.BATTERY, reference = "B1", x = 170f, y = 530f)
         val switch = PlacedComponent(kind = Kind.SWITCH, reference = "SW1", x = 360f, y = 320f)
@@ -198,5 +225,33 @@ object SampleCircuits {
         return Circuit("NMOS Switch",listOf(supply,gate,load,mos,ground),listOf(
             wire(supply,0,load,0),wire(load,1,mos,0),wire(mos,2,supply,1),
             wire(gate,0,mos,1),wire(gate,1,supply,1),wire(supply,1,ground,0)))
+    }
+
+    fun timerCounterRgb():Circuit {
+        val reset=PlacedComponent(kind=Kind.SOURCE,reference="V1",x=130f,y=590f,
+            parameters=mapOf("voltage" to 3.3))
+        val timer=PlacedComponent(kind=Kind.TIMER_555,reference="U1",x=370f,y=420f,
+            parameters=mapOf("frequency" to 5.0,"duty" to .6))
+        val counter=PlacedComponent(kind=Kind.COUNTER_4,reference="U2",x=620f,y=420f)
+        val led=PlacedComponent(kind=Kind.RGB_LED,reference="RGB1",x=860f,y=420f)
+        val ground=PlacedComponent(kind=Kind.GROUND,reference="GND1",x=490f,y=740f)
+        return Circuit("555 Counter RGB",listOf(reset,timer,counter,led,ground),listOf(
+            wire(reset,0,timer,0),wire(reset,1,ground,0),wire(timer,1,ground,0),
+            wire(timer,2,counter,0),wire(counter,1,led,0),wire(counter,2,led,1),
+            wire(counter,3,led,2),wire(led,3,ground,0)))
+    }
+
+    fun transformerDemo():Circuit {
+        val generator=PlacedComponent(kind=Kind.FUNCTION_GENERATOR,reference="FG1",x=170f,y=430f,
+            parameters=mapOf("frequency" to 50.0,"amplitude" to 2.0,"offset" to 0.0,
+                "duty" to .5,"phase" to 0.0,"waveform" to 0.0,"rise" to 1e-6,"fall" to 1e-6))
+        val transformer=PlacedComponent(kind=Kind.TRANSFORMER,reference="T1",x=490f,y=430f)
+        val load=PlacedComponent(kind=Kind.RESISTOR,reference="R1",x=800f,y=430f,
+            parameters=mapOf("resistance" to 1000.0,"rating" to 1.0))
+        val ground=PlacedComponent(kind=Kind.GROUND,reference="GND1",x=490f,y=690f)
+        return Circuit("Coupled Transformer",listOf(generator,transformer,load,ground),listOf(
+            wire(generator,0,transformer,0),wire(generator,1,transformer,1),
+            wire(generator,1,ground,0),wire(transformer,2,load,0),
+            wire(transformer,3,load,1),wire(transformer,3,ground,0)))
     }
 }

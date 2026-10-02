@@ -19,4 +19,14 @@ class WireRoutingTest {
         assertTrue(points.zipWithNext().filter { it.first.y==it.second.y && it.first.x!=it.second.x }
             .any { it.first.y>450f })
     }
+
+    @Test fun routedWireEndsFollowResizedLedDuringRotation() {
+        val led=PlacedComponent(kind=Kind.LED,reference="D1",x=700f,y=450f,sizeScale=1.6f)
+        val resistor=PlacedComponent(kind=Kind.RESISTOR,reference="R1",x=450f,y=250f)
+        val wire=Wire(start=TerminalRef(resistor.id,1),end=TerminalRef(led.id,0))
+        val parts=mapOf(led.id to led,resistor.id to resistor)
+        val points=routedWirePoints(wire,parts,mapOf(led.id to 45f))
+        assertEquals(terminalPosition(resistor,1),points.first())
+        assertEquals(terminalPosition(led,0,45f),points.last())
+    }
 }

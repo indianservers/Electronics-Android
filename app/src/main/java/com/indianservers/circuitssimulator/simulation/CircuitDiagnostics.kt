@@ -1,9 +1,11 @@
 package com.indianservers.circuitssimulator.simulation
 
 import com.indianservers.circuitssimulator.domain.Circuit
+import com.indianservers.circuitssimulator.domain.BoardRegistry
 import com.indianservers.circuitssimulator.domain.Kind
 import com.indianservers.circuitssimulator.domain.TerminalRef
 import com.indianservers.circuitssimulator.domain.electricalConnections
+import com.indianservers.circuitssimulator.domain.isBoard
 import kotlin.math.abs
 
 enum class DiagnosticLevel { INFO, WARNING, ERROR }
@@ -19,7 +21,10 @@ object CircuitDiagnostics {
             "Add a source, a load, and a ground to begin."))
         if(parts.none { it.kind==Kind.GROUND }) issues+=CircuitDiagnostic("NO_GROUND",DiagnosticLevel.ERROR,
             "Add a ground reference so voltages have a defined zero.")
-        if(parts.none { it.kind in setOf(Kind.BATTERY,Kind.SOURCE,Kind.FUNCTION_GENERATOR) })
+        if(parts.none { it.kind in setOf(Kind.BATTERY,Kind.SOURCE,Kind.FUNCTION_GENERATOR,Kind.CLOCK,
+                Kind.SINGLE_CELL,Kind.BATTERY_PACK,Kind.VARIABLE_DC_SUPPLY,Kind.DC_CURRENT_SOURCE,
+                Kind.AC_VOLTAGE_SOURCE,Kind.SINE_GENERATOR,Kind.SQUARE_GENERATOR,Kind.PULSE_GENERATOR,
+                Kind.LOGIC_INPUT) })
             issues+=CircuitDiagnostic("NO_SOURCE",DiagnosticLevel.INFO,
                 "There is no independent electrical source in this circuit.")
 
@@ -79,11 +84,23 @@ object CircuitDiagnostics {
             "Ideal voltage sources impose conflicting voltages on the same wire network.")
         val connected=circuit.wires.flatMap { listOf(it.start,it.end) }.toSet()
         parts.filter { it.kind!=Kind.JUNCTION && it.kind!=Kind.GROUND }.forEach { p ->
-            val missing=(0 until p.terminalCount).filter { TerminalRef(p.id,it) !in connected }
+            val relevant=if(p.kind.isBoard) {
+                val board=BoardRegistry.boards.getValue(p.kind)
+                listOfNotNull(
+                    board.pins.indexOfFirst { it.name in board.supplyPins }.takeIf { first ->
+                        first>=0 && board.pins.indices.none { i -> board.pins[i].name in board.supplyPins &&
+                            TerminalRef(p.id,i) in connected } },
+                    board.pins.indexOfFirst { it.name=="GND" }.takeIf { first ->
+                        first>=0 && board.pins.indices.none { i -> board.pins[i].name.startsWith("GND") &&
+                            TerminalRef(p.id,i) in connected } })
+            } else 0 until p.terminalCount
+            val missing=relevant.filter { TerminalRef(p.id,it) !in connected }
             if(missing.isNotEmpty()) issues+=CircuitDiagnostic("UNWIRED_PIN",DiagnosticLevel.INFO,
                 "${p.reference}: pin ${missing.joinToString()} is not wired.",p.id)
         }
-        parts.filter { it.kind in setOf(Kind.BATTERY,Kind.SOURCE,Kind.FUNCTION_GENERATOR) }.forEach { p ->
+        parts.filter { it.kind in setOf(Kind.BATTERY,Kind.SOURCE,Kind.FUNCTION_GENERATOR,
+            Kind.SINGLE_CELL,Kind.BATTERY_PACK,Kind.VARIABLE_DC_SUPPLY,
+            Kind.AC_VOLTAGE_SOURCE,Kind.SINE_GENERATOR,Kind.SQUARE_GENERATOR,Kind.PULSE_GENERATOR) }.forEach { p ->
             if(root(TerminalRef(p.id,0))==root(TerminalRef(p.id,1)))
                 issues+=CircuitDiagnostic("SOURCE_SHORT",DiagnosticLevel.ERROR,
                     "${p.reference}: its positive and negative terminals are directly connected.",p.id)
@@ -96,6 +113,17 @@ object CircuitDiagnostics {
             result.error+result.progress?.likelyComponentId?.let { id ->
                 parts.firstOrNull { it.id==id }?.let { " Check ${it.reference} and its connections." }
             }.orEmpty(),result.progress?.likelyComponentId)
+        if(result?.error==null) parts.filter { it.kind.isBoard }.forEach { boardPart ->
+            val board=BoardRegistry.boards.getValue(boardPart.kind)
+            board.pins.forEachIndexed { index,pin ->
+                val voltage=result?.nodeVoltages?.get(TerminalRef(boardPart.id,index))
+                if(voltage!=null && pin.maxVoltage!=null &&
+                    TerminalRef(boardPart.id,index) in connected &&
+                    (voltage>pin.maxVoltage+.2 || voltage<(pin.minVoltage ?: 0.0)-.2))
+                    issues+=CircuitDiagnostic("BOARD_PIN_VOLTAGE_${index}",DiagnosticLevel.WARNING,
+                        "${boardPart.reference} ${pin.name}: ${"%.2f".format(voltage)} V is outside the documented ${pin.minVoltage}–${pin.maxVoltage} V input range.",boardPart.id)
+            }
+        }
         if(result?.error==null) parts.forEach { p ->
             val reading=result?.readings?.get(p.id) ?: return@forEach
             when(p.kind) {

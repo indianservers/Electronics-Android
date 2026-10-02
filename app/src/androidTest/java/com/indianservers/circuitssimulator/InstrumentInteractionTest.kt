@@ -2,6 +2,7 @@ package com.indianservers.circuitssimulator
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.ViewModelProvider
 import com.indianservers.circuitssimulator.domain.SampleCircuits
@@ -14,11 +15,14 @@ class InstrumentInteractionTest {
     @get:Rule val rule=createAndroidComposeRule<MainActivity>()
 
     @Before fun startFromIdleSample() {
+        val activity=rule.activity
         rule.runOnUiThread {
-            val model=ViewModelProvider(rule.activity)[SimulatorViewModel::class.java]
+            val model=ViewModelProvider(activity)[SimulatorViewModel::class.java]
             model.loadSample(SampleCircuits.led())
             if(model.state.value.running) model.toggleRun()
         }
+        if(rule.onAllNodesWithText("Simulation").fetchSemanticsNodes().isEmpty())
+            rule.onNodeWithText("Circuit Designer").performClick()
     }
 
     @Test fun scopeOpensFromSimulationControl() {

@@ -14,6 +14,43 @@ class TransientSolverTest {
     private fun wire(a: PlacedComponent,ai: Int,b: PlacedComponent,bi: Int)=
         Wire(start=TerminalRef(a.id,ai),end=TerminalRef(b.id,bi))
 
+    @Test fun blinkingLedAlternatesBetweenOnAndOff() {
+        // Pure transient fixture; the Featured Project now blinks from executed board firmware.
+        val generator=PlacedComponent(kind=Kind.FUNCTION_GENERATOR,reference="FG1",x=100f,y=200f,
+            parameters=mapOf("frequency" to 2.0,"amplitude" to 4.5,"offset" to 4.5,
+                "duty" to .5,"waveform" to 1.0))
+        val resistor=PlacedComponent(kind=Kind.RESISTOR,reference="R1",x=300f,y=200f,
+            parameters=mapOf("resistance" to 330.0))
+        val led=PlacedComponent(kind=Kind.LED,reference="D1",x=500f,y=200f)
+        val ground=PlacedComponent(kind=Kind.GROUND,reference="GND1",x=300f,y=500f)
+        val circuit=Circuit("Square-wave fixture",listOf(generator,resistor,led,ground),listOf(
+            wire(generator,0,resistor,0),wire(resistor,1,led,0),
+            wire(led,1,generator,1),wire(generator,1,ground,0)))
+        val result=solver.simulate(circuit,1.0,.002)
+        assertNull(result.error)
+        val currents=result.frames.mapNotNull { it.readings[led.id]?.current }
+        assertTrue(currents.any { it > .01 })
+        assertTrue(currents.any { abs(it) < .0001 })
+    }
+
+    @Test fun fiveVoltOneKiloOhmHundredMicrofaradMatchesTau() {
+        val source=PlacedComponent(kind=Kind.SOURCE,reference="V1",x=0f,y=0f,
+            parameters=mapOf("voltage" to 5.0))
+        val resistor=PlacedComponent(kind=Kind.RESISTOR,reference="R1",x=0f,y=0f,
+            parameters=mapOf("resistance" to 1000.0,"rating" to .25))
+        val cap=PlacedComponent(kind=Kind.CAPACITOR,reference="C1",x=0f,y=0f,
+            parameters=mapOf("capacitance" to 100e-6,"maxVoltage" to 16.0))
+        val ground=PlacedComponent(kind=Kind.GROUND,reference="GND1",x=0f,y=0f)
+        val circuit=Circuit("RC golden",listOf(source,resistor,cap,ground),listOf(
+            wire(source,0,resistor,0),wire(resistor,1,cap,0),
+            wire(cap,1,source,1),wire(source,1,ground,0)))
+        val tau=0.1
+        val result=solver.simulate(circuit,5*tau,tau/50)
+        assertNull(result.error)
+        val atTau=result.traces.getValue(cap.id).samples.minBy { abs(it.timeSeconds-tau) }
+        assertEquals(5.0*(1-exp(-1.0)),atTau.value,.08)
+    }
+
     @Test fun rcChargingMatchesAnalyticCurve() {
         val circuit=SampleCircuits.rc()
         val cap=circuit.components.first { it.kind==Kind.CAPACITOR }

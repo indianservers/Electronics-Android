@@ -21,6 +21,14 @@ import com.indianservers.circuitssimulator.simulation.sensorResistanceOhms
 
 @Composable
 fun ComponentDetails(p: PlacedComponent,state: SimulatorState,model: SimulatorViewModel) {
+    if(p.kind.isBoard) {
+        BoardInspector(p,state,model)
+        return
+    }
+    if(p.kind.isDigital) {
+        DigitalComponentDetails(p,state,model)
+        return
+    }
     if(p.kind==Kind.POTENTIOMETER) {
         PotentiometerDetails(p,state,model)
         return
@@ -29,7 +37,7 @@ fun ComponentDetails(p: PlacedComponent,state: SimulatorState,model: SimulatorVi
         OpAmpDetails(p,state,model)
         return
     }
-    if(p.terminalCount==3) {
+    if(p.terminalCount==3 && p.kind in setOf(Kind.NPN_BJT,Kind.PNP_BJT,Kind.NMOS,Kind.PMOS)) {
         ThreeTerminalDetails(p,state,model)
         return
     }
@@ -44,6 +52,7 @@ fun ComponentDetails(p: PlacedComponent,state: SimulatorState,model: SimulatorVi
     val definition=ComponentRegistry.definitions.getValue(p.kind)
     val reading=state.result.readings[p.id]
     var advanced by remember(p.id) { mutableStateOf(false) }
+    var infoExpanded by remember(p.id) { mutableStateOf(false) }
     var thermalPlot by remember(p.id) { mutableStateOf(false) }
     Surface(color=Color(0xFF102033),shape=RoundedCornerShape(topStart=22.dp,topEnd=22.dp),
         border=BorderStroke(1.dp,Color(0xFF294159))) {
@@ -64,10 +73,21 @@ fun ComponentDetails(p: PlacedComponent,state: SimulatorState,model: SimulatorVi
                     Text(p.reference,color=TextIce,fontSize=18.sp,fontWeight=FontWeight.Medium)
                     Text(p.kind.title,color=TextIce,fontSize=14.sp)
                     Text(definition.description,color=Muted,fontSize=11.sp,maxLines=2)
+                    Text(if(definition.supportStatus==ComponentSupportStatus.SUPPORTED)
+                        "✓ Supported" else "≈ Simplified model",color=Mint,fontSize=10.sp)
                 }
                 Text("Remove",Modifier.clickable { model.remove(p.id) }.padding(8.dp),color=Color(0xFFFF666E),fontSize=13.sp)
             }
             Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Text("Size  ${(p.sizeScale*100).toInt()}%",Modifier.weight(1f),color=TextIce,fontSize=13.sp)
+                Text("−",Modifier.clickable { model.resize(p.id,p.sizeScale-.15f) }.padding(horizontal=12.dp,vertical=6.dp),
+                    color=Blue,fontSize=22.sp)
+                Text("+",Modifier.clickable { model.resize(p.id,p.sizeScale+.15f) }.padding(horizontal=12.dp,vertical=6.dp),
+                    color=Blue,fontSize=22.sp)
+                Text("Rotate ↻",Modifier.clickable { model.rotate(p.id) }.padding(start=8.dp,top=6.dp,bottom=6.dp),
+                    color=Blue,fontSize=13.sp)
+            }
             definition.parameters.take(1).forEach { param ->
                 var text by remember(p.id,param.key,p.parameters[param.key]) { mutableStateOf(EngineeringUnits.format(p.value(param.key),param.unit)) }
                 Row(verticalAlignment=Alignment.CenterVertically) {
@@ -96,15 +116,34 @@ fun ComponentDetails(p: PlacedComponent,state: SimulatorState,model: SimulatorVi
             if(p.kind==Kind.LDR || p.kind==Kind.THERMISTOR)
                 Text("Electrical resistance  ${EngineeringUnits.format(sensorResistanceOhms(p),"Ω")}",
                     color=Mint,fontSize=12.sp)
-            if (p.kind==Kind.SWITCH) Row(verticalAlignment=Alignment.CenterVertically) {
+            if (p.kind in setOf(Kind.SWITCH,Kind.PUSH_BUTTON,Kind.NC_PUSH_BUTTON,Kind.SPDT_SWITCH)) Row(verticalAlignment=Alignment.CenterVertically) {
                 Text("Contact",Modifier.weight(1f),color=TextIce)
                 Switch(checked=p.closed,onCheckedChange={ model.toggleSwitch(p.id) })
-                Text(if(p.closed) "Closed" else "Open",color=Muted,fontSize=12.sp)
+                Text(if(p.kind==Kind.SPDT_SWITCH) (if(p.closed) "A" else "B")
+                    else if(p.closed) "Closed" else "Open",color=Muted,fontSize=12.sp)
+            }
+            if(p.kind==Kind.DIP_SWITCH_4) (1..4).forEach { channel ->
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Text("Switch $channel",Modifier.weight(1f),color=TextIce,fontSize=12.sp)
+                    Switch(checked=p.value("switch$channel")>=.5,
+                        onCheckedChange={ model.toggleDipSwitch(p.id,channel) })
+                }
             }
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                 Text("V  ${reading?.let { EngineeringUnits.format(it.voltage,"V") } ?: "—"}",color=Mint,fontSize=12.sp)
                 Text("I  ${reading?.let { EngineeringUnits.format(abs(it.current),"A") } ?: "—"}",color=Mint,fontSize=12.sp)
                 Text("P  ${reading?.let { EngineeringUnits.format(it.power,"W") } ?: "—"}",color=Mint,fontSize=12.sp)
+            }
+            if(p.kind==Kind.DC_MOTOR) state.transient?.checkpoint?.motorSpeeds?.get(p.id)?.let { radians ->
+                Text("Rotor  ${"%.1f".format(java.util.Locale.US,radians*60.0/(2.0*Math.PI))} rpm",
+                    color=Mint,fontSize=12.sp)
+            }
+            if(p.kind==Kind.TRANSFORMER) {
+                val secondary=(state.result.nodeVoltages[TerminalRef(p.id,2)] ?: 0.0)-
+                    (state.result.nodeVoltages[TerminalRef(p.id,3)] ?: 0.0)
+                val amps=state.transient?.checkpoint?.transformerCurrents?.get(p.id)?.second
+                Text("Secondary  ${EngineeringUnits.format(secondary,"V")}  "+
+                    (amps?.let { EngineeringUnits.format(it,"A") } ?: "—"),color=Mint,fontSize=12.sp)
             }
             if(reading?.health != null && reading.health != com.indianservers.circuitssimulator.simulation.Health.NORMAL)
                 Text(if(reading.health==com.indianservers.circuitssimulator.simulation.Health.FAILED_OPEN)
@@ -130,9 +169,80 @@ fun ComponentDetails(p: PlacedComponent,state: SimulatorState,model: SimulatorVi
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
-                Text("Rotate  ↻",Modifier.clickable { model.rotate(p.id) }.padding(10.dp),color=Blue,fontSize=13.sp)
+            Text(if(infoExpanded) "Hide pins & specifications  ▴" else "Pins & specifications  ▾",
+                Modifier.clickable { infoExpanded=!infoExpanded }.padding(vertical=7.dp),
+                color=Blue,fontSize=12.sp)
+            if(infoExpanded) {
+                (0 until p.terminalCount).forEach { pin ->
+                    val name=terminalName(p,pin)
+                    val volts=state.result.nodeVoltages[TerminalRef(p.id,pin)]
+                    Text("${pin+1}. $name  ${volts?.let { EngineeringUnits.format(it,"V") } ?: "—"}",
+                        color=TextIce,fontSize=11.sp)
+                }
+                definition.datasheet.manufacturer?.let { Text("Manufacturer: $it",color=Muted,fontSize=11.sp) }
+                definition.datasheet.partNumber?.let { Text("Part: $it",color=Muted,fontSize=11.sp) }
+                definition.datasheet.sourceNotes?.let { Text(it,color=Muted,fontSize=11.sp) }
+                if(definition.applications.isNotEmpty()) Text("Uses: ${definition.applications.joinToString()}",
+                    color=Muted,fontSize=11.sp)
+                if(definition.limitations.isNotEmpty()) Text("Model limits: ${definition.limitations.joinToString()}",
+                    color=Muted,fontSize=11.sp)
             }
+        }
+    }
+}
+
+@Composable
+private fun DigitalComponentDetails(p:PlacedComponent,state:SimulatorState,model:SimulatorViewModel) {
+    val outputPins:List<Int> = when(p.kind) {
+        in DigitalParts.pinNames.keys -> DigitalParts.outputs(p.kind).toList()
+        Kind.SHIFT_74HC595 -> listOf(14,0,1,2,3,4,5,6,8)
+        Kind.COUNTER_CD4017 -> listOf(2,1,3,6,9,0,4,5,8,10,11)
+        Kind.COUNTER_4 -> (1..4).toList()
+        Kind.ADC_2 -> (2..3).toList()
+        Kind.DAC_2 -> listOf(2)
+        else -> listOf(p.terminalCount-1)
+    }
+    Surface(color=Panel,shape=RoundedCornerShape(topStart=22.dp,topEnd=22.dp)) {
+        Column(Modifier.fillMaxWidth().heightIn(max=390.dp).verticalScroll(rememberScrollState())
+            .padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                Text("${p.reference} · ${p.kind.title}",color=TextIce,fontSize=18.sp)
+                Text("Remove",Modifier.clickable { model.remove(p.id) },color=Color(0xFFFF666E))
+            }
+            (if(p.kind==Kind.LOGIC_OUTPUT) listOf(0) else outputPins).forEach { index ->
+                val pin=TerminalRef(p.id,index)
+                val level=if(p.kind==Kind.DAC_2) "ANALOG" else
+                    state.result.digitalStates[pin]?.name ?: "UNKNOWN"
+                val voltage=state.result.nodeVoltages[pin]
+                Text("${com.indianservers.circuitssimulator.ui.canvas.terminalName(p,index)}: $level  "+
+                    (voltage?.let { EngineeringUnits.format(it,"V") } ?: "—"),color=Mint)
+            }
+            ComponentRegistry.definitions.getValue(p.kind).parameters.forEach { param ->
+                if(p.kind==Kind.LOGIC_INPUT) {
+                    Row {
+                        listOf("Low","High").forEachIndexed { index,label ->
+                            FilterChip(selected=p.value("state").toInt()==index,
+                                onClick={model.setParameter(p.id,"state",index.toDouble())},
+                                label={Text(label)},modifier=Modifier.padding(end=8.dp))
+                        }
+                    }
+                    return@forEach
+                }
+                var value by remember(p.id,param.key,p.parameters[param.key]) {
+                    mutableStateOf(EngineeringUnits.format(p.value(param.key),param.unit))
+                }
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Text(param.label,Modifier.weight(1f),color=TextIce)
+                    OutlinedTextField(value,{ value=it },Modifier.width(145.dp).height(54.dp),singleLine=true)
+                    Text("✓",Modifier.clickable {
+                        EngineeringUnits.parse(value)?.let { model.setParameter(p.id,param.key,it) }
+                    }.padding(8.dp),color=Mint)
+                }
+            }
+            Text("3.3 V CMOS-like levels; powered from the simulator reference ground.",
+                color=Muted,fontSize=11.sp)
+            Text(ComponentRegistry.definitions.getValue(p.kind).limitations.joinToString(" "),
+                color=Muted,fontSize=11.sp)
         }
     }
 }
@@ -313,6 +423,16 @@ private fun GeneratorDetails(p:PlacedComponent,state:SimulatorState,model:Simula
                 names.forEachIndexed { index,name ->
                     FilterChip(selected=waveform==index,onClick={model.setParameter(p.id,"waveform",index.toDouble())},
                         label={Text(name,fontSize=10.sp)})
+                }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                listOf("1 Hz □" to Triple(1.0,1.0,1.0),"100 Hz □" to Triple(100.0,1.0,1.0),
+                    "1 kHz sine" to Triple(1000.0,0.0,1.0),"10 kHz sine" to Triple(10000.0,0.0,1.0)).forEach { (label,spec) ->
+                    FilterChip(false,{
+                        model.setParameter(p.id,"frequency",spec.first)
+                        model.setParameter(p.id,"waveform",spec.second)
+                        model.setParameter(p.id,"amplitude",spec.third)
+                    },label={Text(label,fontSize=10.sp)})
                 }
             }
             SignalChart(state.transient?.traces?.get(p.id),state.elapsedSeconds,

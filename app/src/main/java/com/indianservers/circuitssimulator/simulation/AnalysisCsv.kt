@@ -6,13 +6,18 @@ import kotlin.math.log10
 
 object AnalysisCsv {
     private fun number(value:Double)=String.format(Locale.US,"%.10g",value)
-    fun scope(frames:List<TransientFrame>,ch1:TerminalRef?,ch2:TerminalRef?):String = buildString {
-        append("time_seconds,ch1_volts,ch2_volts\n")
+    fun scope(frames:List<TransientFrame>,ch1:TerminalRef?,ch2:TerminalRef?):String =
+        scope(frames,listOf(ch1,ch2))
+    fun scope(frames:List<TransientFrame>,channels:List<TerminalRef?>):String = buildString {
+        append("time_seconds")
+        channels.indices.forEach { append(",ch${it+1}_volts") }
+        append('\n')
         frames.forEach { frame ->
-            append(number(frame.timeSeconds));append(',')
-            ch1?.let { frame.nodeVoltages[it] }?.let { append(number(it)) }
-            append(',')
-            ch2?.let { frame.nodeVoltages[it] }?.let { append(number(it)) }
+            append(number(frame.timeSeconds))
+            channels.forEach { channel ->
+                append(',')
+                channel?.let { frame.nodeVoltages[it] }?.let { append(number(it)) }
+            }
             append('\n')
         }
     }

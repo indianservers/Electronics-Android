@@ -12,6 +12,19 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CircuitJsonInstrumentedTest {
+    @Test fun expandedPhaseThreePartsRoundTrip() {
+        val kinds=listOf(Kind.VCCS,Kind.VCVS,Kind.CCCS,Kind.CCVS,Kind.TRANSFORMER,
+            Kind.PUSH_BUTTON,Kind.SPDT_SWITCH,Kind.RELAY,Kind.ZENER,Kind.RGB_LED,
+            Kind.DC_MOTOR,Kind.TIMER_555,Kind.D_FLIP_FLOP,Kind.T_FLIP_FLOP,
+            Kind.COUNTER_4,Kind.ADC_2,Kind.DAC_2,Kind.SEVEN_SEGMENT)
+        val parts=kinds.mapIndexed { index,kind -> PlacedComponent(kind=kind,
+            reference="X${index+1}",x=index*30f,y=100f) }
+        val original=Circuit("Expanded parts",parts,listOf(Wire(start=TerminalRef(parts[0].id,2),
+            end=TerminalRef(parts[1].id,0))))
+        assertEquals(original,CircuitJson.decode(CircuitJson.encode(original)))
+        assertTrue(!parts.first { it.kind==Kind.PUSH_BUTTON }.closed)
+    }
+
     @Test fun namedNetRoundTripsAndOlderSchemaStillOpens() {
         val original=SampleCircuits.divider()
         val circuit=original.copy(wires=original.wires.mapIndexed { index,wire ->
@@ -32,7 +45,8 @@ class CircuitJsonInstrumentedTest {
             SampleCircuits.rcLowPass(),SampleCircuits.rcHighPass(),SampleCircuits.rlLowPass(),
             SampleCircuits.lightDivider(),SampleCircuits.potentiometerDemo(),
             SampleCircuits.fuseFault(),SampleCircuits.nonInvertingOpAmp(),
-            SampleCircuits.npnSwitch(),SampleCircuits.nmosSwitch())
+            SampleCircuits.npnSwitch(),SampleCircuits.nmosSwitch(),SampleCircuits.digitalInverter(),
+            SampleCircuits.timerCounterRgb(),SampleCircuits.transformerDemo())
         samples.forEach { assertEquals(it.name,it,CircuitJson.decode(CircuitJson.encode(it))) }
     }
 
@@ -81,5 +95,15 @@ class CircuitJsonInstrumentedTest {
         old.getJSONArray("components").getJSONObject(0).remove("databaseId")
         old.getJSONArray("components").getJSONObject(0).remove("modelVersion")
         assertNotNull(CircuitJson.decode(old.toString()).components.single().databaseId)
+    }
+
+    @Test fun componentSizeRoundTripsAndLegacySizeDefaultsToOne() {
+        val led=PlacedComponent(kind=Kind.LED,reference="D1",x=100f,y=200f,
+            rotation=90,sizeScale=1.5f)
+        val circuit=Circuit("Sized LED",listOf(led),emptyList())
+        assertEquals(circuit,CircuitJson.decode(CircuitJson.encode(circuit)))
+        val old=JSONObject(CircuitJson.encode(circuit))
+        old.getJSONArray("components").getJSONObject(0).remove("sizeScale")
+        assertEquals(1f,CircuitJson.decode(old.toString()).components.single().sizeScale)
     }
 }

@@ -17,8 +17,98 @@ enum class Kind(val title: String, val prefix: String, val category: String) {
     ELECTROLYTIC("Electrolytic capacitor", "C", "Basic"), INDUCTOR("Inductor", "L", "Basic"),
     GROUND("Ground", "GND", "Basic"), AMMETER("Ammeter", "A", "Measurement"),
     VOLTMETER("Voltmeter", "VM", "Measurement"),
-    JUNCTION("Junction", "J", "Internal")
+    JUNCTION("Junction", "J", "Internal"),
+    VCCS("Voltage-controlled current source", "G", "Sources"),
+    VCVS("Voltage-controlled voltage source", "E", "Sources"),
+    CCCS("Current-controlled current source", "F", "Sources"),
+    CCVS("Current-controlled voltage source", "H", "Sources"),
+    TRANSFORMER("Transformer", "T", "Basic"),
+    PUSH_BUTTON("Push button", "PB", "Basic"), SPDT_SWITCH("SPDT switch", "SW", "Basic"),
+    RELAY("Relay", "K", "Basic"), ZENER("Zener diode", "ZD", "Semiconductors"),
+    RGB_LED("RGB LED", "RGB", "Outputs"), DC_MOTOR("DC motor", "M", "Outputs"),
+    TIMER_555("555 timer", "U", "Digital"), D_FLIP_FLOP("D flip-flop", "U", "Digital"),
+    T_FLIP_FLOP("T flip-flop", "U", "Digital"), COUNTER_4("4-bit counter", "U", "Digital"),
+    ADC_2("2-bit ADC", "U", "Digital"), DAC_2("2-bit DAC", "U", "Digital"),
+    SEVEN_SEGMENT("Seven-segment display", "DS", "Outputs"),
+    CLOCK("Clock", "CLK", "Digital"), NOT_GATE("NOT gate", "U", "Digital"),
+    AND_GATE("AND gate", "U", "Digital"), OR_GATE("OR gate", "U", "Digital"),
+    NAND_GATE("NAND gate", "U", "Digital"), NOR_GATE("NOR gate", "U", "Digital"),
+    XOR_GATE("XOR gate", "U", "Digital"), XNOR_GATE("XNOR gate", "U", "Digital"),
+    ARDUINO_UNO("Arduino Uno R3", "UNO", "Development Boards"),
+    ARDUINO_NANO("Arduino Nano", "NANO", "Development Boards"),
+    ARDUINO_MEGA("Arduino Mega 2560", "MEGA", "Development Boards"),
+    RASPBERRY_PICO("Raspberry Pi Pico", "PICO", "Development Boards"),
+    RASPBERRY_PICO_W("Raspberry Pi Pico W", "PICOW", "Development Boards"),
+    NODEMCU_ESP8266("NodeMCU ESP8266", "ESP", "Development Boards"),
+    ESP32_DEVKIT("ESP32 DevKitC V4", "ESP32", "Development Boards"),
+    WEMOS_D1_MINI("Wemos D1 Mini", "D1", "Development Boards"),
+    ESP32_C3_DEVKIT("ESP32-C3 DevKitM-1", "C3", "Development Boards"),
+    ARDUINO_NANO_33_IOT("Arduino Nano 33 IoT", "N33", "Development Boards"),
+    RASPBERRY_PICO_2("Raspberry Pi Pico 2", "PICO2", "Development Boards"),
+    SINGLE_CELL("Single-cell battery", "CELL", "Sources"),
+    BATTERY_PACK("Battery pack", "PACK", "Sources"),
+    VARIABLE_DC_SUPPLY("Variable DC supply", "PS", "Sources"),
+    DC_CURRENT_SOURCE("DC current source", "I", "Sources"),
+    AC_VOLTAGE_SOURCE("AC voltage source", "VAC", "Sources"),
+    SINE_GENERATOR("Sine-wave generator", "SIN", "Sources"),
+    SQUARE_GENERATOR("Square-wave generator", "SQ", "Sources"),
+    PULSE_GENERATOR("Pulse generator", "PULSE", "Sources"),
+    RHEOSTAT("Rheostat", "RV", "Basic"),
+    PTC_THERMISTOR("PTC thermistor", "PTC", "Sensors"),
+    VARIABLE_CAPACITOR("Variable capacitor", "CV", "Basic"),
+    SCHOTTKY_DIODE("Schottky diode", "SD", "Semiconductors"),
+    RED_LED("Red LED", "D", "Outputs"),
+    GREEN_LED("Green LED", "D", "Outputs"),
+    BLUE_LED("Blue LED", "D", "Outputs"),
+    PHOTODIODE("Photodiode", "PD", "Sensors"),
+    NC_PUSH_BUTTON("Normally-closed push button", "PB", "Basic"),
+    BUFFER_GATE("Buffer", "U", "Digital"),
+    TRI_STATE_BUFFER("Tri-state buffer", "U", "Digital"),
+    SR_LATCH("SR latch", "U", "Digital"),
+    D_LATCH("D latch", "U", "Digital"),
+    JK_FLIP_FLOP("JK flip-flop", "U", "Digital"),
+    MULTIPLEXER_2("2:1 multiplexer", "U", "Digital"),
+    DEMULTIPLEXER_2("1:2 demultiplexer", "U", "Digital"),
+    ENCODER_4("4:2 priority encoder", "U", "Digital"),
+    DECODER_2("2:4 decoder", "U", "Digital"),
+    LOGIC_INPUT("Logic input", "IN", "Digital"),
+    LOGIC_OUTPUT("Logic output", "OUT", "Digital"),
+    BUZZER("Active buzzer", "BZ", "Outputs"),
+    SPEAKER("Speaker", "SPK", "Outputs"),
+    SERVO_MOTOR("Servo motor", "SERVO", "Outputs"),
+    SOLENOID("Solenoid", "SOL", "Outputs"),
+    DIP_SWITCH_4("4-way DIP switch", "DIP", "Basic"),
+    DPDT_RELAY("DPDT relay", "K", "Basic"),
+    REED_SWITCH("Reed switch", "RS", "Sensors"),
+    LM35_SENSOR("LM35 temperature sensor", "TMP", "Sensors"),
+    HALL_SENSOR("Linear Hall sensor", "HALL", "Sensors"),
+    PHOTOTRANSISTOR("Phototransistor", "Q", "Sensors"),
+    DARLINGTON("Darlington NPN", "Q", "Semiconductors"),
+    SCR("SCR thyristor", "SCR", "Semiconductors"),
+    TRIAC("TRIAC", "TRIAC", "Semiconductors"),
+    LM358("LM358 dual op-amp", "U", "Semiconductors"),
+    LM741("LM741 op-amp", "U", "Semiconductors"),
+    COMPARATOR("Comparator", "U", "Semiconductors"),
+    REGULATOR_7805("7805 regulator", "U", "Semiconductors"),
+    REGULATOR_LM317("LM317 regulator", "U", "Semiconductors"),
+    L293D("L293D motor driver", "U", "Digital"),
+    ULN2003("ULN2003 driver", "U", "Digital"),
+    SHIFT_74HC595("74HC595 shift register", "U", "Digital"),
+    COUNTER_CD4017("CD4017 decade counter", "U", "Digital"),
+    SERIAL_TERMINAL("Serial terminal", "TERM", "Embedded"),
+    I2C_TEMP_SENSOR("I2C temperature sensor", "TMP", "Embedded"),
+    I2C_LCD("I2C LCD 16x2", "LCD", "Embedded"),
+    OLED_SSD1306("I2C OLED display", "OLED", "Embedded"),
+    I2C_EEPROM("I2C EEPROM", "EE", "Embedded"),
+    ULTRASONIC("Ultrasonic ranger", "US", "Embedded"),
+    PIR_SENSOR("PIR motion sensor", "PIR", "Embedded"),
+    SPI_MEMORY("SPI memory", "MEM", "Embedded")
 }
+
+val Kind.isBoard get() = category == "Development Boards"
+val Kind.isDigital get() = (category == "Digital" && this !in setOf(Kind.L293D,Kind.ULN2003)) || isBoard
+val Kind.isLogicGate get() = this in setOf(Kind.NOT_GATE,Kind.AND_GATE,Kind.OR_GATE,
+    Kind.NAND_GATE,Kind.NOR_GATE,Kind.XOR_GATE,Kind.XNOR_GATE,Kind.BUFFER_GATE)
 
 data class DatasheetMetadata(
     val manufacturer: String? = null, val partNumber: String? = null,
@@ -38,7 +128,18 @@ data class Definition(val kind: Kind, val description: String, val parameters: L
                       val modelId: String = kind.name.lowercase(), val rendererId: String = kind.name.lowercase(),
                       val datasheet: DatasheetMetadata = DatasheetMetadata(),
                       val thermal:ThermalMetadata=ThermalMetadata(),
-                      val modelAccuracy:ModelAccuracy=ModelAccuracy.SIMPLIFIED)
+                      val modelAccuracy:ModelAccuracy=ModelAccuracy.SIMPLIFIED,
+                      val keywords:List<String> = emptyList(),
+                      val applications:List<String> = emptyList(),
+                      val limitations:List<String> = emptyList()) {
+    val id:String get()=kind.name.lowercase()
+    val supportStatus:ComponentSupportStatus get()=when(modelAccuracy) {
+        ModelAccuracy.IDEAL,ModelAccuracy.DATASHEET_FITTED,ModelAccuracy.MANUFACTURER_SPICE -> ComponentSupportStatus.SUPPORTED
+        else -> ComponentSupportStatus.SIMPLIFIED_MODEL
+    }
+}
+
+enum class ComponentSupportStatus { SUPPORTED, SIMPLIFIED_MODEL, PREVIEW }
 
 object ComponentRegistry {
     private val entries = listOf(
@@ -80,6 +181,44 @@ object ComponentRegistry {
             Parameter("currentRating", "Current rating", "A", .5, .01, 100.0),
             Parameter("i2t", "Opening I²t", "A²s", .01, 1e-6, 1e4))),
         Definition(Kind.SWITCH, "Opens or closes a circuit", emptyList()),
+        Definition(Kind.PUSH_BUTTON,"Normally-open momentary contact; press in the component panel",emptyList()),
+        Definition(Kind.SPDT_SWITCH,"Common contact selects throw A or B",emptyList()),
+        Definition(Kind.RELAY,"SPDT relay: isolated coil, common, normally-open and normally-closed contacts",listOf(
+            Parameter("coilResistance","Coil resistance","Ω",120.0,1.0,1e6),
+            Parameter("pullInVoltage","Pull-in voltage","V",5.0,0.1,100.0))),
+        Definition(Kind.VCCS,"Current from output + to − equals gain times control voltage",listOf(
+            Parameter("gain","Transconductance","A/V",0.01,-100.0,100.0))),
+        Definition(Kind.VCVS,"Output voltage equals gain times control voltage",listOf(
+            Parameter("gain","Voltage gain","",2.0,-1000.0,1000.0))),
+        Definition(Kind.CCCS,"Output current equals gain times current through the control port",listOf(
+            Parameter("gain","Current gain","",2.0,-1000.0,1000.0))),
+        Definition(Kind.CCVS,"Output voltage equals transresistance times control-port current",listOf(
+            Parameter("gain","Transresistance","Ω",100.0,-1e6,1e6))),
+        Definition(Kind.TRANSFORMER,"Two coupled windings with a configurable turns ratio",listOf(
+            Parameter("primaryInductance","Primary inductance","H",0.1,1e-6,100.0),
+            Parameter("turnsRatio","Secondary / primary turns","",2.0,0.01,100.0),
+            Parameter("coupling","Magnetic coupling","",0.98,0.01,0.9999))),
+        Definition(Kind.ZENER,"Forward diode with reverse breakdown knee",listOf(
+            Parameter("breakdownVoltage","Breakdown voltage","V",5.1,1.0,100.0),
+            Parameter("dynamicResistance","Breakdown resistance","Ω",10.0,0.1,10000.0))),
+        Definition(Kind.RGB_LED,"Common-cathode red, green and blue LED branches",listOf(
+            Parameter("seriesResistance","Per-channel resistance","Ω",100.0,1.0,10000.0))),
+        Definition(Kind.DC_MOTOR,"Armature R/L with inertia and back EMF",listOf(
+            Parameter("resistance","Armature resistance","Ω",20.0,0.1,10000.0),
+            Parameter("inductance","Armature inductance","H",0.01,1e-6,100.0),
+            Parameter("motorConstant","Torque/back-EMF constant","",0.1,0.001,10.0),
+            Parameter("inertia","Rotor inertia","kg·m²",0.001,1e-6,1.0),
+            Parameter("friction","Viscous friction","",0.001,0.0,1.0))),
+        Definition(Kind.TIMER_555,"Astable 555 output with RESET input",listOf(
+            Parameter("frequency","Oscillation frequency","Hz",10.0,0.1,10000.0),
+            Parameter("duty","High fraction","",0.66,0.01,0.99))),
+        Definition(Kind.D_FLIP_FLOP,"Rising-edge D storage",listOf(Parameter("delay","Clock-to-Q delay","s",1e-5,1e-6,0.1))),
+        Definition(Kind.T_FLIP_FLOP,"Rising-edge toggle storage",listOf(Parameter("delay","Clock-to-Q delay","s",1e-5,1e-6,0.1))),
+        Definition(Kind.COUNTER_4,"Rising-edge four-bit binary counter",listOf(Parameter("delay","Clock-to-output delay","s",1e-5,1e-6,0.1))),
+        Definition(Kind.ADC_2,"Two-bit comparator ADC, 0–3.3 V full scale",emptyList()),
+        Definition(Kind.DAC_2,"Two-bit DAC, 0–3.3 V output",emptyList()),
+        Definition(Kind.SEVEN_SEGMENT,"Seven independent LED segments with common cathode",listOf(
+            Parameter("seriesResistance","Per-segment resistance","Ω",330.0,1.0,10000.0))),
         Definition(Kind.LED, "Emits light when forward biased", listOf(
             Parameter("maxCurrent", "Maximum current", "A", .02, .001, .1),
             Parameter("isat", "Model saturation current", "A", 1e-18, 1e-22, 1e-6),
@@ -149,7 +288,32 @@ object ComponentRegistry {
         Definition(Kind.GROUND, "Electrical reference", emptyList()),
         Definition(Kind.AMMETER, "Low impedance current meter", emptyList()),
         Definition(Kind.VOLTMETER, "High impedance voltage meter", emptyList()),
-        Definition(Kind.JUNCTION, "Electrical wire junction", emptyList())
+        Definition(Kind.JUNCTION, "Electrical wire junction", emptyList()),
+        Definition(Kind.CLOCK, "3.3 V digital clock output", listOf(
+            Parameter("frequency", "Frequency", "Hz", 10.0, 0.1, 10000.0),
+            Parameter("duty", "High fraction", "", 0.5, 0.01, 0.99))),
+        *listOf(Kind.NOT_GATE,Kind.AND_GATE,Kind.OR_GATE,Kind.NAND_GATE,
+            Kind.NOR_GATE,Kind.XOR_GATE,Kind.XNOR_GATE).map { kind ->
+            Definition(kind,"3.3 V logic with finite output drive",listOf(
+                Parameter("delay", "Propagation delay", "s", 0.00001, 0.000001, 0.1)))
+        }.toTypedArray(),
+        *PhaseOneParts.definitions.toTypedArray(),
+        *DigitalParts.definitions.toTypedArray(),
+        *ElectromechanicalParts.definitions.toTypedArray(),
+        *SemiconductorSwitchParts.definitions.toTypedArray(),
+        *IcParts.definitions.toTypedArray(),
+        *PhaseFiveParts.definitions.toTypedArray(),
+        *BoardRegistry.boards.values.map { board -> Definition(board.kind,
+            "${board.mcu} development board; ${board.logicVoltage} V GPIO learning model",
+            board.pins.filter { it.capabilities.contains(PinCapability.DIGITAL_OUTPUT) }.map { pin ->
+                Parameter("gpio_${pin.name}","${pin.name} mode (0 input, 1 low, 2 high)","",0.0,0.0,2.0)
+            }+listOf(Parameter("usbPower","USB power (0 off, 1 on)","",1.0,0.0,1.0)),
+            datasheet=DatasheetMetadata(manufacturer=board.manufacturer,partNumber=board.product,
+                packageName="Development board",referenceUrl=board.sourceUrl,
+                sourceNotes=board.notes,physicalPinOrder=board.pins.map { it.name }),
+            keywords=board.keywords,applications=listOf("GPIO wiring", "Embedded systems learning"),
+            limitations=listOf("Supported firmware subset only; Wi-Fi and Bluetooth are not simulated.",
+                "USB power is an explicit board option. UART/I²C/SPI are event-based educational buses.")) }.toTypedArray()
     )
     val definitions=entries.associateBy { it.kind }
     fun validate():List<String> {
@@ -162,8 +326,14 @@ object ComponentRegistry {
             if(source.partNumber!=null) {
                 if(source.packageName.isNullOrBlank() || source.referenceUrl.isNullOrBlank())
                     errors+="${d.kind}: missing package or source"
-                val pinCount=if(d.kind in setOf(Kind.NPN_BJT,Kind.PNP_BJT,Kind.NMOS,Kind.PMOS,Kind.IDEAL_OPAMP,Kind.OPAMP)) 3 else 2
-                if(source.physicalPinOrder.size!=pinCount || source.physicalPinOrder.distinct().size!=pinCount)
+                val pinCount=if(d.kind.isBoard) BoardRegistry.boards.getValue(d.kind).pins.size
+                    else if(d.kind in ElectromechanicalParts.pinNames) ElectromechanicalParts.pinNames.getValue(d.kind).size
+                    else if(d.kind in IcParts.pinNames) IcParts.pinNames.getValue(d.kind).size
+                    else if(d.kind in PhaseFiveParts.pinNames) PhaseFiveParts.pinNames.getValue(d.kind).size
+                    else if(d.kind in setOf(Kind.NPN_BJT,Kind.PNP_BJT,Kind.NMOS,Kind.PMOS,Kind.IDEAL_OPAMP,Kind.OPAMP)) 3 else 2
+                if(source.physicalPinOrder.size!=pinCount ||
+                    (!d.kind.isBoard && d.kind !in IcParts.pinNames &&
+                        source.physicalPinOrder.distinct().size!=pinCount))
                     errors+="${d.kind}: invalid physical pin order"
             }
             if(d.parameters.map { it.key }.distinct().size!=d.parameters.size) errors+="${d.kind}: duplicate parameter"
@@ -175,7 +345,25 @@ object ComponentRegistry {
                 if(p.key=="temperatureC" && p.min< -273.15) errors+="${d.kind}.${p.key}: below absolute zero"
             }
         }
+        if(definitions.keys!=Kind.entries.toSet()) errors+="Registry does not cover every component kind"
         return errors
+    }
+    val catalog:List<Definition> = entries.filter { it.kind!=Kind.JUNCTION }
+    val common:List<Definition> = listOf(Kind.RESISTOR,Kind.LED,Kind.BATTERY,Kind.SWITCH,
+        Kind.CAPACITOR,Kind.GROUND,Kind.ARDUINO_UNO).map(definitions::getValue)
+    val categories:List<String> = catalog.map { it.kind.category }.distinct()
+    fun search(query:String,category:String?=null):List<Definition> = catalog.filter { definition ->
+        (category==null || category=="All" || definition.kind.category==category) &&
+            (query.isBlank() || listOf(definition.kind.title,definition.kind.name,
+                definition.kind.category,definition.description,definition.datasheet.partNumber.orEmpty(),
+                definition.datasheet.manufacturer.orEmpty()).plus(definition.keywords)
+                .plus(definition.applications)
+                .plus(if(definition.kind.isBoard) {
+                    val board=BoardRegistry.boards.getValue(definition.kind)
+                    listOf(board.family.name,board.mcu,board.architecture,board.module.orEmpty(),
+                        board.revision,board.supportLabel())
+                } else emptyList())
+                .any { it.contains(query,ignoreCase=true) })
     }
 }
 
@@ -183,15 +371,25 @@ data class PlacedComponent(
     val id: String = UUID.randomUUID().toString(), val kind: Kind, val reference: String,
     val x: Float, val y: Float, val rotation: Int = 0,
     val parameters: Map<String, Double> = ComponentRegistry.definitions.getValue(kind).parameters.associate { it.key to it.default },
-    val closed: Boolean = true,
+    val closed: Boolean = kind != Kind.PUSH_BUTTON,
     val databaseId:String? = ComponentRegistry.definitions.getValue(kind).datasheet.let { source ->
         if(source.manufacturer!=null && source.partNumber!=null) "${source.manufacturer}:${source.partNumber}" else null },
-    val modelVersion:Int = ComponentRegistry.definitions.getValue(kind).datasheet.modelVersion
+    val modelVersion:Int = ComponentRegistry.definitions.getValue(kind).datasheet.modelVersion,
+    val sizeScale: Float = 1f
 ) {
     fun value(key: String) = parameters[key] ?: ComponentRegistry.definitions.getValue(kind).parameters.firstOrNull { it.key == key }?.default ?: 0.0
-    val terminalCount get() = when(kind) {
-        Kind.GROUND,Kind.JUNCTION -> 1
-        Kind.NPN_BJT,Kind.PNP_BJT,Kind.NMOS,Kind.PMOS,Kind.IDEAL_OPAMP,Kind.OPAMP,Kind.POTENTIOMETER -> 3
+    val terminalCount get() = if(kind.isBoard) BoardRegistry.boards.getValue(kind).pins.size
+        else DigitalParts.pinNames[kind]?.size ?: ElectromechanicalParts.pinNames[kind]?.size ?:
+            IcParts.pinNames[kind]?.size ?: PhaseFiveParts.pinNames[kind]?.size ?: when(kind) {
+        Kind.GROUND,Kind.JUNCTION,Kind.CLOCK -> 1
+        Kind.VCCS,Kind.VCVS,Kind.CCCS,Kind.CCVS,Kind.TRANSFORMER,Kind.RGB_LED,
+        Kind.ADC_2,Kind.DAC_2 -> 4
+        Kind.COUNTER_4,Kind.RELAY -> 5
+        Kind.SEVEN_SEGMENT -> 8
+        Kind.NPN_BJT,Kind.PNP_BJT,Kind.NMOS,Kind.PMOS,Kind.IDEAL_OPAMP,Kind.OPAMP,Kind.POTENTIOMETER,
+            Kind.AND_GATE,Kind.OR_GATE,Kind.NAND_GATE,Kind.NOR_GATE,Kind.XOR_GATE,Kind.XNOR_GATE,
+            Kind.SPDT_SWITCH,Kind.TIMER_555,Kind.D_FLIP_FLOP,Kind.T_FLIP_FLOP,
+            Kind.DARLINGTON,Kind.SCR,Kind.TRIAC -> 3
         else -> 2
     }
 }
@@ -201,13 +399,26 @@ data class Wire(val id: String = UUID.randomUUID().toString(), val start: Termin
                 val label:String?=null)
 data class SimulationSettings(val analysis: String = "DC", val tolerance: Double = 1e-8, val maxIterations: Int = 80)
 data class Circuit(val name: String, val components: List<PlacedComponent>, val wires: List<Wire>,
-                   val settings: SimulationSettings = SimulationSettings())
+                   val settings: SimulationSettings = SimulationSettings(),
+                   val firmware:List<FirmwareAttachment> = emptyList(),
+                   val environment:EnvironmentState=EnvironmentState())
 
 /** Physical wires plus logical joins between separate wire segments bearing the same net label. */
 fun Circuit.electricalConnections():List<Pair<TerminalRef,TerminalRef>> =
     wires.map { it.start to it.end } + wires.filter { !it.label.isNullOrBlank() }
         .groupBy { it.label!!.uppercase(java.util.Locale.ROOT) }.values.flatMap { group ->
             group.drop(1).map { group.first().start to it.start }
+        } + components.filter { it.kind.isBoard }.flatMap { part ->
+            val pins=BoardRegistry.boards.getValue(part.kind).pins
+            val groups=pins.withIndex().groupBy { it.value.signal }
+            groups.values.flatMap { pinsWithName -> pinsWithName.drop(1).map { other ->
+                TerminalRef(part.id,pinsWithName.first().index) to TerminalRef(part.id,other.index)
+            } }
+        } + components.filter { it.kind in IcParts.pinNames }.flatMap { part ->
+            IcParts.pinNames.getValue(part.kind).withIndex().groupBy { it.value }.values
+                .flatMap { group -> group.drop(1).map { other ->
+                    TerminalRef(part.id,group.first().index) to TerminalRef(part.id,other.index)
+                } }
         }
 
 fun Circuit.nextReference(kind: Kind): String {

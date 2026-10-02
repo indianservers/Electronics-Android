@@ -7,16 +7,17 @@ import kotlin.math.max
 
 /** Electrical terminal order: BJT C/B/E; MOSFET D/G/S. Positive current leaves a terminal. */
 fun threeTerminalCurrents(part:PlacedComponent, volts:DoubleArray):DoubleArray = when(part.kind) {
-    Kind.NPN_BJT,Kind.PNP_BJT -> bjtCurrents(part,volts)
+    Kind.NPN_BJT,Kind.PNP_BJT,Kind.DARLINGTON -> bjtCurrents(part,volts)
     Kind.NMOS,Kind.PMOS -> mosCurrents(part,volts)
     else -> error("Not a three-terminal device: ${part.kind}")
 }
 
 private fun bjtCurrents(part:PlacedComponent,v:DoubleArray):DoubleArray {
-    val sign=if(part.kind==Kind.NPN_BJT) 1.0 else -1.0
-    val vt=0.025852 // kT/q at 300 K; model temperature dependence remains future work.
-    val forward=limitedJunctionCurrent(sign*(v[1]-v[2]),part.value("is"),vt)
-    val reverse=limitedJunctionCurrent(sign*(v[1]-v[0]),part.value("is"),vt)
+    val sign=if(part.kind==Kind.NPN_BJT || part.kind==Kind.DARLINGTON) 1.0 else -1.0
+    val darlington=part.kind==Kind.DARLINGTON
+    val vt=if(darlington) .051704 else .025852 // two cascaded base-emitter junctions
+    val forward=limitedJunctionCurrent(sign*(v[1]-v[2]),part.value("is"),vt,if(darlington) 1.5 else .8)
+    val reverse=limitedJunctionCurrent(sign*(v[1]-v[0]),part.value("is"),vt,if(darlington) 1.5 else .8)
     val alphaF=part.value("bf")/(part.value("bf")+1.0)
     val alphaR=part.value("br")/(part.value("br")+1.0)
     val early=1.0+max(sign*(v[0]-v[2]),0.0)/part.value("vaf")
@@ -42,8 +43,7 @@ private fun mosCurrents(part:PlacedComponent,v:DoubleArray):DoubleArray {
 }
 
 /** Linear continuation above the exponential limit keeps Newton's Jacobian informative. */
-private fun limitedJunctionCurrent(voltage:Double,isat:Double,thermal:Double):Double {
-    val limit=.8
+private fun limitedJunctionCurrent(voltage:Double,isat:Double,thermal:Double,limit:Double=.8):Double {
     if(voltage<=limit) return isat*(exp((voltage/thermal).coerceAtLeast(-40.0))-1.0)
     val atLimit=isat*(exp(limit/thermal)-1.0)
     return atLimit+(voltage-limit)*isat*exp(limit/thermal)/thermal

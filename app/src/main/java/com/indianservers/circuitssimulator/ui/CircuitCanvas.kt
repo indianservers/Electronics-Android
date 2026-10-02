@@ -33,12 +33,13 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.indianservers.circuitssimulator.domain.*
+import com.indianservers.circuitssimulator.guide.LessonCatalog
+import com.indianservers.circuitssimulator.guide.LessonCriterion
 import com.indianservers.circuitssimulator.simulation.Health
 import com.indianservers.circuitssimulator.ui.canvas.*
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 private fun routedPoints(a: Offset,b: Offset): List<Offset> = buildList {
     add(a)
@@ -48,30 +49,33 @@ private fun routedPoints(a: Offset,b: Offset): List<Offset> = buildList {
     add(b)
 }
 
-private fun pinDirection(part:PlacedComponent,pin:Int):Offset {
+private fun pinDirection(part:PlacedComponent,pin:Int,rotationDegrees:Float=part.rotation.toFloat()):Offset {
     val local=localTerminalOffset(part,pin)
     if(local==Offset.Zero) return Offset.Zero
-    val radial=if(abs(local.x)>abs(local.y)) Offset(if(local.x<0f) -1f else 1f,0f)
+    val radial=if(part.kind==Kind.LED && pin==0) Offset(-1f,0f)
+        else if(abs(local.x)>abs(local.y)) Offset(if(local.x<0f) -1f else 1f,0f)
         else Offset(0f,if(local.y<0f) -1f else 1f)
-    val radians=Math.toRadians(part.rotation.toDouble())
+    val radians=Math.toRadians(rotationDegrees.toDouble())
     return Offset((radial.x*kotlin.math.cos(radians)-radial.y*kotlin.math.sin(radians)).toFloat(),
         (radial.x*kotlin.math.sin(radians)+radial.y*kotlin.math.cos(radians)).toFloat())
 }
 
 /** Route from each physical pin outward, then around component bodies. */
-internal fun routedWirePoints(wire:Wire,parts:Map<String,PlacedComponent>):List<Offset> {
+internal fun routedWirePoints(wire:Wire,parts:Map<String,PlacedComponent>,angles:Map<String,Float> = emptyMap()):List<Offset> {
     val first=parts[wire.start.componentId] ?: return emptyList()
     val last=parts[wire.end.componentId] ?: return emptyList()
     if(wire.start.index !in 0 until first.terminalCount || wire.end.index !in 0 until last.terminalCount)
         return emptyList()
-    val a=terminalPosition(first,wire.start.index)
-    val b=terminalPosition(last,wire.end.index)
-    val aOut=a+pinDirection(first,wire.start.index)*29f
-    val bOut=b+pinDirection(last,wire.end.index)*29f
-    val top=minOf(aOut.y,bOut.y,parts.values.minOfOrNull { it.y-95f } ?: 0f)-30f
-    val bottom=maxOf(aOut.y,bOut.y,parts.values.maxOfOrNull { it.y+95f } ?: 0f)+30f
-    val left=minOf(aOut.x,bOut.x,parts.values.minOfOrNull { it.x-95f } ?: 0f)-30f
-    val right=maxOf(aOut.x,bOut.x,parts.values.maxOfOrNull { it.x+95f } ?: 0f)+30f
+    val aAngle=angles[first.id] ?: first.rotation.toFloat()
+    val bAngle=angles[last.id] ?: last.rotation.toFloat()
+    val a=terminalPosition(first,wire.start.index,aAngle)
+    val b=terminalPosition(last,wire.end.index,bAngle)
+    val aOut=a+pinDirection(first,wire.start.index,aAngle)*29f
+    val bOut=b+pinDirection(last,wire.end.index,bAngle)*29f
+    val top=minOf(aOut.y,bOut.y,parts.values.minOfOrNull { it.y-95f*it.sizeScale } ?: 0f)-30f
+    val bottom=maxOf(aOut.y,bOut.y,parts.values.maxOfOrNull { it.y+95f*it.sizeScale } ?: 0f)+30f
+    val left=minOf(aOut.x,bOut.x,parts.values.minOfOrNull { it.x-95f*it.sizeScale } ?: 0f)-30f
+    val right=maxOf(aOut.x,bOut.x,parts.values.maxOfOrNull { it.x+95f*it.sizeScale } ?: 0f)+30f
     val routes=listOf(
         listOf(a,aOut,Offset(bOut.x,aOut.y),bOut,b),
         listOf(a,aOut,Offset(aOut.x,bOut.y),bOut,b),
@@ -81,14 +85,24 @@ internal fun routedWirePoints(wire:Wire,parts:Map<String,PlacedComponent>):List<
         listOf(a,aOut,Offset(right,aOut.y),Offset(right,bOut.y),bOut,b)
     )
     fun blocked(p:Offset,q:Offset,part:PlacedComponent):Boolean {
-        val lx=part.x-49f;val rx=part.x+49f;val ty=part.y-51f;val by=part.y+51f
+        val horizontalExtent=(if(part.kind==Kind.LED) 37f else 62f)*part.sizeScale
+        val verticalExtent=62f*part.sizeScale
+        val lx=part.x-horizontalExtent;val rx=part.x+horizontalExtent
+        val ty=part.y-verticalExtent;val by=part.y+verticalExtent
         return if(abs(p.y-q.y)<.1f) p.y in ty..by && maxOf(p.x,q.x)>lx && min(p.x,q.x)<rx
             else if(abs(p.x-q.x)<.1f) p.x in lx..rx && maxOf(p.y,q.y)>ty && min(p.y,q.y)<by
             else false
     }
     return routes.minBy { route ->
         val segments=route.zipWithNext()
-        val collisions=segments.sumOf { (p,q) -> parts.values.count { blocked(p,q,it) } }
+        val collisions=segments.withIndex().sumOf { (index,segment) ->
+            // Only the endpoint component may be entered by its own terminal stub.
+            parts.values.count { part ->
+                (index!=0 || part.id!=first.id) &&
+                    (index!=segments.lastIndex || part.id!=last.id) &&
+                    blocked(segment.first,segment.second,part)
+            }
+        }
         collisions*100000f+segments.sumOf { (p,q) -> (q-p).getDistance().toDouble() }.toFloat()+
             route.size*3f
     }.fold(mutableListOf<Offset>()) { result,point ->
@@ -100,6 +114,28 @@ internal fun routedWirePoints(wire:Wire,parts:Map<String,PlacedComponent>):List<
 private data class Viewport(val scale: Float, val origin: Offset) {
     fun world(pixel: Offset) = (pixel - origin) / scale
     fun pixel(world: Offset) = world * scale + origin
+}
+
+/** Only a solved, single DC source has an unambiguous battery return for this guide. */
+internal fun hasDcWirePolarity(state: SimulatorState): Boolean =
+    state.result.error == null &&
+        state.circuit.components.count { it.kind==Kind.BATTERY || it.kind==Kind.SOURCE || it.kind==Kind.FUNCTION_GENERATOR } == 1 &&
+        state.circuit.components.any { it.kind==Kind.BATTERY || it.kind==Kind.SOURCE }
+
+private fun wirePolarityColor(state: SimulatorState, wire: Wire): Color? {
+    if(!hasDcWirePolarity(state)) return null
+    val source=state.circuit.components.first { it.kind==Kind.BATTERY || it.kind==Kind.SOURCE }
+    val positive=state.result.nodeVoltages[TerminalRef(source.id,0)] ?: return null
+    val negative=state.result.nodeVoltages[TerminalRef(source.id,1)] ?: return null
+    val wireVoltage=state.result.nodeVoltages[wire.start] ?: return null
+    val span=positive-negative
+    if(span<=.05) return null
+    val fraction=(wireVoltage-negative)/span
+    return when {
+        abs(fraction)<=.05 -> Return
+        fraction>.05 -> Supply
+        else -> null
+    }
 }
 
 @Composable
@@ -123,6 +159,8 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
     val animatedAngles=state.circuit.components.associate { part ->
         key(part.id) { part.id to animatedAngle(part) }
     }
+    val waveformFrames=if(state.measurementsVisible) state.transient?.frames?.takeLast(32).orEmpty()
+        else emptyList()
     var canvasSize by remember { mutableStateOf(Size.Zero) }
     var dragging by remember { mutableStateOf<String?>(null) }
     var dragDelta by remember { mutableStateOf(Offset.Zero) }
@@ -141,24 +179,36 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
     }
     fun hitComponent(point: Offset): PlacedComponent? {
         val world = viewport.world(point)
-        return state.circuit.components.lastOrNull { hypot((it.x-world.x).toDouble(),(it.y-world.y).toDouble()) < 90.0 }
+        return state.circuit.components.lastOrNull {
+            if(it.kind.isBoard) {
+                val board=BoardRegistry.boards.getValue(it.kind)
+                kotlin.math.abs(it.x-world.x)<(board.boardWidth/2f+8f)*it.sizeScale &&
+                    kotlin.math.abs(it.y-world.y)<(board.boardHeight/2f+8f)*it.sizeScale
+            } else if(it.kind in IcParts.pinNames && it.terminalCount>=16) {
+                kotlin.math.abs(it.x-world.x)<90f*it.sizeScale &&
+                    kotlin.math.abs(it.y-world.y)<115f*it.sizeScale
+            } else hypot((it.x-world.x).toDouble(),(it.y-world.y).toDouble()) < 90.0*it.sizeScale
+        }
     }
     fun hitTerminal(point: Offset): TerminalRef? {
         val world = viewport.world(point)
         return state.circuit.components.flatMap { p ->
-            (0 until p.terminalCount).map { pin ->
-                val t=terminalPosition(p,pin)
+            (0 until p.terminalCount).mapNotNull { pin ->
+                if(p.kind.isBoard && BoardRegistry.boards.getValue(p.kind).pins.getOrNull(pin)?.connectable==false)
+                    return@mapNotNull null
+                val t=terminalPosition(p,pin,animatedAngles[p.id] ?: p.rotation.toFloat())
                 val distance=hypot((t.x-world.x).toDouble(),(t.y-world.y).toDouble())
-                TerminalRef(p.id,pin) to distance
+                val reach=(if(p.kind.isBoard) 36f else if(p.id==state.selectedId) 32f else 26f)*
+                    p.sizeScale.coerceAtMost(1.15f)
+                Triple(TerminalRef(p.id,pin),distance,reach.toDouble())
             }
-        }.filter { (ref,distance) -> distance < if(ref.componentId==state.selectedId) 48.0 else 38.0 }
-            .minByOrNull { it.second }?.first
+        }.filter { it.second < it.third }.minByOrNull { it.second }?.first
     }
     fun hitWire(point: Offset): Wire? {
         val world=viewport.world(point)
         val parts=state.circuit.components.associateBy { it.id }
         return state.circuit.wires.firstOrNull { wire ->
-            routedWirePoints(wire,parts).zipWithNext().any { (first,last) ->
+            routedWirePoints(wire,parts,animatedAngles).zipWithNext().any { (first,last) ->
                 val delta=last-first
                 val fraction=if(delta.getDistanceSquared()<1f) 0f else
                     (((world-first).x*delta.x+(world-first).y*delta.y)/delta.getDistanceSquared()).coerceIn(0f,1f)
@@ -219,7 +269,17 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                     else -> {
                         pendingTerminal=null
                         val hit=hitComponent(point)
-                        if (hit?.kind == Kind.SWITCH) { model.toggleSwitch(hit.id);haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+                        if (hit?.kind in setOf(Kind.SWITCH,Kind.PUSH_BUTTON,Kind.NC_PUSH_BUTTON,Kind.SPDT_SWITCH)) {
+                            model.toggleSwitch(hit!!.id);haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                        if(hit?.kind==Kind.DIP_SWITCH_4) {
+                            val world=viewport.world(point)
+                            val delta=world-Offset(hit.x,hit.y)
+                            val angle=Math.toRadians(-hit.rotation.toDouble())
+                            val localY=(delta.x*kotlin.math.sin(angle)+delta.y*kotlin.math.cos(angle))/hit.sizeScale
+                            val channel=((localY+60f)/30f).toInt().coerceIn(0,3)+1
+                            model.toggleDipSwitch(hit.id,channel)
+                        }
                         if(hit!=null) model.select(hit.id) else model.selectWire(hitWire(point)?.id)
                     }
                 }
@@ -288,15 +348,12 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                     y=original.y+dragDelta.y/viewport.scale) else original
             }
             val connectedPins=state.circuit.wires.flatMap { listOf(it.start,it.end) }.groupBy { it.componentId }
-            val routedLookup=lookup.mapValues { (_,part) ->
-                part.copy(rotation=(animatedAngles[part.id] ?: part.rotation.toFloat()).roundToInt())
-            }
             state.circuit.wires.sortedBy { wire ->
                 val first=abs(state.result.readings[wire.start.componentId]?.current ?: 0.0)
                 val second=abs(state.result.readings[wire.end.componentId]?.current ?: 0.0)
                 first>1e-5 && second>1e-5
             }.forEachIndexed { wireIndex, wire ->
-                val points=routedWirePoints(wire,routedLookup)
+                val points=routedWirePoints(wire,lookup,animatedAngles)
                 if(points.size<2) return@forEachIndexed
                 val a=points.first();val b=points.last()
                 val route=Path().apply {
@@ -306,14 +363,22 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                 val startCurrent=abs(state.result.readings[wire.start.componentId]?.current ?: 0.0)
                 val endCurrent=abs(state.result.readings[wire.end.componentId]?.current ?: 0.0)
                 val active=state.running && state.result.error==null && startCurrent>1e-5 && endCurrent>1e-5
-                val tint=if(active) Mint else Blue
+                val digital=state.result.digitalStates[wire.start] ?: state.result.digitalStates[wire.end]
+                val tint=when(digital) {
+                    com.indianservers.circuitssimulator.simulation.digital.LogicState.HIGH -> Mint
+                    com.indianservers.circuitssimulator.simulation.digital.LogicState.LOW -> Blue
+                    com.indianservers.circuitssimulator.simulation.digital.LogicState.UNKNOWN -> Color(0xFFFFB44D)
+                    com.indianservers.circuitssimulator.simulation.digital.LogicState.HIGH_Z -> Muted
+                    else -> wirePolarityColor(state,wire) ?: if(active) Mint else Blue
+                }
                 val selected=wire.id==state.selectedWireId
+                val highlighted=wire.id in state.highlightedWires
                 if(active) drawPath(route,tint.copy(alpha=.13f),style=Stroke(17f))
                 if(selected) drawPath(route,Color.White.copy(alpha=.22f),style=Stroke(17f))
-                if(active && !selected) drawPath(route,Brush.horizontalGradient(
-                    listOf(Blue,Blue,Mint,Mint),startX=0f,endX=1000f),style=Stroke(5f))
-                else drawPath(route,if(selected) Color(0xFF9CD9FF) else tint.copy(alpha=.75f),
-                    style=Stroke(if(selected) 7f else 5f))
+                if(highlighted) drawPath(route,Color(0x88FFB25E),style=Stroke(19f))
+                drawPath(route,if(highlighted) Color(0xFFFFC46D) else if(selected) Color(0xFF9CD9FF)
+                    else tint.copy(alpha=if(active) 1f else .75f),
+                    style=Stroke(if(selected || highlighted) 7f else 5f))
                 if(active) {
                     val startReading=state.result.readings[wire.start.componentId]?.current ?: 0.0
                     val leaving=if(wire.start.index==0) -startReading else startReading
@@ -331,11 +396,32 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                         val normal=Offset(-dir.y,dir.x)*7f
                         val arrow=Path().apply { moveTo(tip.x,tip.y);lineTo(base.x+normal.x,base.y+normal.y);
                             lineTo(base.x-normal.x,base.y-normal.y);close() }
-                        drawPath(arrow,Color(0xFFB9FFE1).copy(alpha=.55f))
+                        drawPath(arrow,Color.White.copy(alpha=.9f))
                     }
                 }
-                drawCircle(if(active && a.x<500f) Blue else tint,8f,a)
-                drawCircle(if(active && b.x<500f) Blue else tint,8f,b)
+                drawCircle(tint,8f,a)
+                drawCircle(tint,8f,b)
+                if(waveformFrames.size>=4) {
+                    val samples=waveformFrames.mapNotNull { it.nodeVoltages[wire.start] }
+                    val low=samples.minOrNull() ?: 0.0
+                    val high=samples.maxOrNull() ?: 0.0
+                    if(samples.size>=4 && high-low>.05) {
+                        val segment=points.zipWithNext().maxByOrNull { (first,last) ->
+                            (last-first).getDistance() }
+                        if(segment!=null) {
+                            val center=(segment.first+segment.second)/2f+Offset(0f,-45f)
+                            drawRoundRect(Panel,Offset(center.x-40f,center.y-21f),Size(80f,42f),
+                                androidx.compose.ui.geometry.CornerRadius(7f))
+                            val wave=Path()
+                            samples.forEachIndexed { index,value ->
+                                val x=center.x-34f+68f*index/(samples.size-1)
+                                val y=center.y+14f-28f*((value-low)/(high-low)).toFloat()
+                                if(index==0) wave.moveTo(x,y) else wave.lineTo(x,y)
+                            }
+                            drawPath(wave,tint,style=Stroke(2.5f))
+                        }
+                    }
+                }
                 wire.label?.let { label ->
                     val segment=points.zipWithNext().maxByOrNull { (first,last) -> (last-first).getDistance() }
                     if(segment!=null) {
@@ -358,15 +444,34 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                 val p=lookup.getValue(original.id)
                 val reading=state.result.readings[p.id]
                 val intensity=when(p.kind) {
-                    Kind.LED -> ((abs(reading?.current ?: 0.0)/.02).coerceIn(0.0,1.0)).toFloat()
+                    Kind.LED,Kind.RED_LED,Kind.GREEN_LED,Kind.BLUE_LED ->
+                        ((kotlin.math.max(0.0,reading?.current ?: 0.0)/.02).coerceIn(0.0,1.0)).toFloat()
                     Kind.LAMP -> ((reading?.power ?: 0.0)/(p.value("rating").coerceAtLeast(.01))).coerceIn(0.0,1.0).toFloat()
+                    Kind.BUZZER,Kind.SPEAKER -> (abs(reading?.current ?: 0.0)/.05).coerceIn(0.0,1.0).toFloat()
+                    Kind.SOLENOID -> (abs(reading?.current ?: 0.0)/p.value("pullInCurrent"))
+                        .coerceIn(0.0,1.0).toFloat()
+                    Kind.SERVO_MOTOR -> if((reading?.current ?: 0.0)>.001)
+                        ((state.result.nodeVoltages[TerminalRef(p.id,2)] ?: 0.0)/5.0)
+                            .coerceIn(0.0,1.0).toFloat() else 0f
                     else -> 0f
                 }
-                drawComponent(p,p.id==state.selectedId,if(state.running) intensity else 0f,
-                    animatedAngles[p.id] ?: p.rotation.toFloat(),connectedPins[p.id].orEmpty().map { it.index }.toSet())
+                val activeMask=if(p.kind==Kind.RGB_LED || p.kind==Kind.SEVEN_SEGMENT) {
+                    val cathode=state.result.nodeVoltages[TerminalRef(p.id,p.terminalCount-1)] ?: 0.0
+                    (0 until p.terminalCount-1).fold(0) { mask,pin ->
+                        val drop=(state.result.nodeVoltages[TerminalRef(p.id,pin)] ?: 0.0)-cathode
+                        val threshold=if(p.kind==Kind.RGB_LED) listOf(1.8,2.2,3.0)[pin] else 1.9
+                        if(drop>threshold) mask or (1 shl pin) else mask
+                    }
+                } else 0
+                drawComponent(p,p.id==state.selectedId || p.id in state.highlightedParts,
+                    if(state.running) intensity else 0f,
+                    animatedAngles[p.id] ?: p.rotation.toFloat(),connectedPins[p.id].orEmpty().map { it.index }.toSet(),
+                    activeMask)
                 if (p.kind != Kind.JUNCTION) drawContext.canvas.nativeCanvas.apply {
                     val paint=android.graphics.Paint(3).apply { color=android.graphics.Color.rgb(221,234,255);textSize=27f;textAlign=android.graphics.Paint.Align.CENTER }
-                    drawText(p.reference,p.x,p.y-88f,paint)
+                    val top=if(p.kind.isBoard) BoardRegistry.boards.getValue(p.kind).boardHeight/2f+20f
+                        else if(p.kind in IcParts.pinNames && p.terminalCount>=16) 132f else 88f
+                    drawText(p.reference,p.x,p.y-top,paint)
                     val secondary=when(p.kind) {
                         Kind.BATTERY,Kind.SOURCE -> EngineeringUnits.format(p.value("voltage"),"V")
                         Kind.FUNCTION_GENERATOR -> EngineeringUnits.format(p.value("frequency"),"Hz")
@@ -380,11 +485,21 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                         else -> p.kind.title
                     }
                     paint.color=android.graphics.Color.rgb(151,174,201);paint.textSize=23f
-                    drawText(secondary,p.x,p.y+96f,paint)
+                    if(p.kind!=Kind.LED) drawText(secondary,p.x,p.y+96f,paint)
                     if(state.measurementsVisible && reading!=null && state.result.error==null &&
                         p.kind!=Kind.GROUND) {
-                        val label="${EngineeringUnits.format(reading.voltage,"V")}  ·  "+
-                            EngineeringUnits.format(reading.current,"A")
+                        val label=when {
+                            p.kind==Kind.CAPACITOR || p.kind==Kind.ELECTROLYTIC ->
+                                "Q ${EngineeringUnits.format(p.value("capacitance")*reading.voltage,"C")}"+
+                                    "  ·  ${EngineeringUnits.format(reading.voltage,"V")}"
+                            p.kind.isDigital -> {
+                                val output=TerminalRef(p.id,p.terminalCount-1)
+                                "${state.result.digitalStates[output]?.name ?: "UNKNOWN"}  ·  "+
+                                    EngineeringUnits.format(state.result.nodeVoltages[output] ?: 0.0,"V")
+                            }
+                            else -> "${EngineeringUnits.format(reading.voltage,"V")}  ·  "+
+                                EngineeringUnits.format(reading.current,"A")
+                        }
                         paint.textSize=19f
                         val width=paint.measureText(label)+24f
                         paint.color=android.graphics.Color.rgb(18,42,58)
@@ -393,6 +508,23 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                         drawText(label,p.x,p.y+139f,paint)
                     }
                 }
+            }
+            val guideStep=state.guide?.let { session ->
+                LessonCatalog.byId[session.lessonId]?.steps?.getOrNull(session.stepIndex) }
+            guideStep?.focusPins?.forEach { target ->
+                state.circuit.components.filter { it.kind==target.kind && target.pin in 0 until it.terminalCount }
+                    .forEach { part ->
+                        val at=terminalPosition(part,target.pin,animatedAngles[part.id] ?: part.rotation.toFloat())
+                        drawCircle(Color(0x5509C7F5),31f,at)
+                        drawCircle(Color(0xFF09C7F5),20f,at,style=Stroke(4f))
+                    }
+            }
+            state.highlightedPins.forEach { ref ->
+                val part=lookup[ref.componentId] ?: return@forEach
+                if(ref.index !in 0 until part.terminalCount) return@forEach
+                val at=terminalPosition(part,ref.index,animatedAngles[part.id] ?: part.rotation.toFloat())
+                drawCircle(Color(0x66FFB25E),34f,at)
+                drawCircle(Color(0xFFFFB25E),21f,at,style=Stroke(4f))
             }
             val placing=state.placement
             val preview=placementPreview

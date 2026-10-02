@@ -40,14 +40,14 @@ This is a code and emulator audit of the current Android app. **Done** means the
 | 34 | Use adaptive transient steps with local error control | High | Open | Stable RC/switch results across tolerances. |
 | 35 | Add parameter sweeps and tolerance analysis | Medium | Done | 41-point bounded DC parameter sweep, plotted probe voltage, CSV export, and seeded 100-sample resistor tolerance summary; JVM tests and emulator UI check. |
 | 36 | Couple component temperature to electrical behavior | High | Open | Thermal state changes model parameters across time. |
-| 37 | Put digital gates and four-state wires on the canvas | High | Open | Editable mixed digital/analog circuit round-trips. |
-| 38 | Coordinate digital events with transient analog timesteps | High | Open | Deterministic reactive mixed-signal acceptance circuits. |
-| 39 | Add an MCU board component with labeled electrical pins | High | Open | Board can wire into the circuit and save pin assignments. |
+| 37 | Put digital gates and four-state wires on the canvas | High | Done | Clock and seven gates are selectable, wired, rendered, persisted, and color-coded by state. |
+| 38 | Coordinate digital events with transient analog timesteps | High | Done | Clock edges and gate delays bound transient steps; wired RC and LED acceptance circuits pass. |
+| 39 | Add an MCU board component with labeled electrical pins | High | Partial | Seven boards now have pin-level placement, manual GPIO, board inspector, electrical power checks, and Android round-trip tests. Firmware, ADC and bus behavior remain. See `PHASE_1_COMPONENT_PLATFORM_REPORT.md`. |
 | 40 | Add an isolated, bounded firmware runtime and editor | High | Open | Deterministic GPIO/ADC/PWM program with resource limits. |
 | 41 | Add UART transmit, receive, and terminal display | High | Open | Bidirectional timing and framing tests. |
 | 42 | Add I²C open-drain bus and sensor transactions | High | Open | Address, ACK, clock stretching, and repeated-start tests. |
 | 43 | Add SPI controller, peripheral, and protocol view | Medium | Open | CPOL/CPHA modes and chip-select timing tests. |
-| 44 | Add an electrical and mechanical DC motor model | High | Open | Startup, stall, back EMF, and thermal tests. |
+| 44 | Add an electrical and mechanical DC motor model | High | Partial | Armature, back EMF, inertia and friction model exists; thermal behavior and complete stall validation remain. |
 | 45 | Add PWM, timer, and interrupt peripherals | High | Open | Timer edges align with electrical simulation. |
 | 46 | Add oscilloscope trigger and time/voltage cursors | Medium | Done | Rising/falling trigger, threshold, two time cursors, Δt and ΔV; JVM tests and emulator 10 Hz trace. |
 | 47 | Add FFT and frequency-domain scope measurements | Medium | Done | Hann-windowed spectrum and peak display; JVM sine/harmonic test; emulator 10 Hz peak measured 10 Hz. |
@@ -61,4 +61,4 @@ This is a code and emulator audit of the current Android app. **Done** means the
 - Android instrumentation on isolated `emulator-5558`: 12 tests passed on the final full run. An earlier run had an activity teardown timeout; its targeted rerun and subsequent full runs passed.
 - Manual emulator: global catalog search, diagnostics warning, JSON export/import, rejected-recovery relaunch, sample browser, oscilloscope trigger/cursors/FFT, canvas reading overlay, and parameter sweep/tolerance display passed. The PDF renderer was checked with Poppler.
 
-The current count is **31 Done, 2 Partial, 17 Open**. The existing `FINAL_PHASE_STATUS.md` describes the broader product gaps and should be read alongside this scoped enhancement audit.
+The current count is **31 Done, 4 Partial, 15 Open**. Phase 1's additional component work is documented in `PHASE_1_COMPONENT_PLATFORM_REPORT.md`. The existing `FINAL_PHASE_STATUS.md` describes the broader product gaps and should be read alongside this scoped enhancement audit.

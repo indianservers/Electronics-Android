@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.ViewModelProvider
 import androidx.core.view.WindowInsetsControllerCompat
-import com.indianservers.circuitssimulator.ui.SimulatorScreen
+import com.indianservers.circuitssimulator.ui.AppRoot
 import com.indianservers.circuitssimulator.ui.SimulatorViewModel
 
 class MainActivity : ComponentActivity() {
@@ -18,6 +18,16 @@ class MainActivity : ComponentActivity() {
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightNavigationBars = false
         val model = ViewModelProvider(this)[SimulatorViewModel::class.java]
-        setContent { SimulatorScreen(model) }
+        setContent { AppRoot(model) }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        ViewModelProvider(this)[SimulatorViewModel::class.java].setForeground(true)
+    }
+
+    override fun onStop() {
+        ViewModelProvider(this)[SimulatorViewModel::class.java].setForeground(false)
+        super.onStop()
     }
 }

@@ -62,6 +62,13 @@ class EventQueue {
     }
     fun poll():DigitalEvent?=queue.poll()
     fun peekTime():Double?=queue.peek()?.timeSeconds
+    fun snapshot():List<DigitalEvent> = queue.toList().sortedWith(compareBy<DigitalEvent> { it.timeSeconds }
+        .thenBy { it.order })
+    fun restore(pending:List<DigitalEvent>) {
+        queue.clear();sequence=0L
+        pending.sortedWith(compareBy<DigitalEvent> { it.timeSeconds }.thenBy { it.order })
+            .forEach { schedule(it.timeSeconds,it.node,it.state) }
+    }
     val size get()=queue.size
 }
 
@@ -74,6 +81,14 @@ class DigitalEngine(private val devices:List<DigitalDevice>) {
     fun state(node:String)=states[node] ?: LogicState.HIGH_Z
     fun trace(node:String):List<DigitalSignal> = history[node]?.toList().orEmpty()
     fun drive(node:String,state:LogicState,atSeconds:Double) { events.schedule(atSeconds,node,state) }
+    fun restore(atSeconds:Double,values:Map<String,LogicState>,pending:List<DigitalEvent>) {
+        require(atSeconds>=nowSeconds-1e-12)
+        states.clear();states.putAll(values)
+        history.clear()
+        nowSeconds=atSeconds
+        events.restore(pending.filter { it.timeSeconds>=atSeconds-1e-12 }.map {
+            if(it.timeSeconds<atSeconds) it.copy(timeSeconds=atSeconds) else it })
+    }
     fun advanceTo(endSeconds:Double,maxEvents:Int=100000) {
         require(endSeconds>=nowSeconds)
         var processed=0
