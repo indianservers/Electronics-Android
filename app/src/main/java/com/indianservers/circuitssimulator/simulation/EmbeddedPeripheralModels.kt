@@ -15,6 +15,9 @@ internal fun stampPhaseFive(p:PlacedComponent,indices:IntArray,guess:DoubleArray
         Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM -> {
             branch(0,1,1.0/8000.0)
             branch(2,1,1e-9);branch(3,1,1e-9)
+            com.indianservers.circuitssimulator.firmware.EmbeddedProfiles.profiles[p.kind]?.electrical?.modulePullupOhms?.let { r ->
+                branch(2,0,1.0/r);branch(3,0,1.0/r)
+            }
         }
         Kind.ULTRASONIC -> {
             branch(0,1,1.0/15000.0)

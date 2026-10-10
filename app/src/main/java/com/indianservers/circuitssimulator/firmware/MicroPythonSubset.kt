@@ -1,191 +1,187 @@
 package com.indianservers.circuitssimulator.firmware
 
-/** Bounded MicroPython subset compiled to the same firmware IR. Not CPython and not a full machine API. */
+/** Indentation-aware, bounded interpreter frontend. No host Python or Android access. */
 object MicroPythonSubset {
-    val supportedApis=setOf("Pin","Pin.value","ADC.read_u16","ADC.read","PWM.duty_u16","PWM.freq",
-        "time.sleep","time.sleep_ms","print","I2C.scan","I2C.writeto","I2C.readfrom","UART.write","UART.read")
-
+    val supportedApis=setOf("Pin","ADC","PWM","I2C","UART","SPI","print","sleep","sleep_ms","sleep_us",
+        "time.sleep","time.sleep_ms","time.sleep_us","ticks_ms","ticks_us","time.ticks_ms","time.ticks_us","bytes","bytearray","len")
+    private val methods=mapOf("Pin" to setOf("value","on","off","toggle"),
+        "ADC" to setOf("read","read_u16"),"PWM" to setOf("freq","duty_u16","deinit"),
+        "I2C" to setOf("scan","writeto","readfrom"),"UART" to setOf("write","read","any"),
+        "SPI" to setOf("write","read"))
+    private data class Row(val text:String,val indent:Int,val line:Int)
     fun compile(source:String,board:FirmwareBoard?=null):FirmwareProgram {
         require(source.length<=20000) { "Firmware source exceeds 20,000 characters." }
-        val lexer=Lexer(source)
-        val parser=Parser(lexer.tokens())
-        val program=parser.program(source)
-        if(board!=null) ArduinoSubset.compile(transpileForValidation(program),board)
-        return program
-    }
-
-    private fun transpileForValidation(program:FirmwareProgram):String {
-        // Validation is performed on the IR by executing supported call names through Arduino-equivalent checks.
-        return "void setup(){ delay(1); } void loop(){ delay(1); }"
-    }
-
-    private data class Token(val text:String,val line:Int,val kind:Int=0)
-    private class ParseFailure(val at:Int,message:String):IllegalArgumentException("Line $at: $message")
-
-    private class Lexer(private val source:String) {
-        fun tokens():List<Token> {
-            val out=mutableListOf<Token>();var i=0;var line=1
-            while(i<source.length) {
-                val c=source[i]
-                if(c=='\n') { line++;i++;continue }
-                if(c.isWhitespace()) { i++;continue }
-                if(c=='#') { while(i<source.length && source[i]!='\n') i++;continue }
-                if(source.startsWith("\"\"\"",i) || source.startsWith("'''",i)) {
-                    val quote=source.substring(i,i+3);i+=3
-                    while(i<source.length && !source.startsWith(quote,i)) {
-                        if(source[i]=='\n') line++
-                        i++
-                    }
-                    if(i>=source.length) throw ParseFailure(line,"Unclosed string")
-                    i+=3;continue
-                }
-                if(c=='"' || c=='\'') {
-                    val quote=c;val start=line;val value=StringBuilder();i++
-                    while(i<source.length && source[i]!=quote) {
-                        if(source[i]=='\n') throw ParseFailure(start,"Unclosed string")
-                        value.append(source[i]);i++
-                    }
-                    if(i>=source.length) throw ParseFailure(start,"Unclosed string")
-                    i++;out+=Token(value.toString(),start,2);continue
-                }
-                if(c.isLetter() || c=='_') {
-                    val start=i
-                    while(i<source.length && (source[i].isLetterOrDigit() || source[i]=='_' || source[i]=='.')) i++
-                    out+=Token(source.substring(start,i),line,1);continue
-                }
-                if(c.isDigit()) {
-                    val start=i
-                    while(i<source.length && (source[i].isDigit() || source[i]=='.')) i++
-                    out+=Token(source.substring(start,i),line,3);continue
-                }
-                val pair=source.substring(i,(i+2).coerceAtMost(source.length))
-                if(pair in setOf("==","!=","<=",">=","**")) { out+=Token(pair,line);i+=2;continue }
-                if(c in "()[]:,+-*/%=<>!") { out+=Token(c.toString(),line);i++;continue }
-                throw ParseFailure(line,"Unexpected character '$c'")
-            }
-            out+=Token("<EOF>",line)
-            return out
+        val rows=source.lines().mapIndexedNotNull { i,s ->
+            require('\t' !in s) { "Line ${i+1}: use spaces for indentation." }
+            val text=s.trim()
+            require(s.length-s.trimStart().length<=128) { "Line ${i+1}: excessive indentation." }
+            if(text.isEmpty() || text.startsWith("#")) null else Row(text,s.length-s.trimStart().length,i+1)
         }
-    }
-
-    private class Parser(private val tokens:List<Token>) {
-        private var index=0
-        private val at get()=tokens[index]
-        private fun take()=tokens[index++]
-        private fun accept(text:String)=if(at.text==text) { index++;true } else false
-        private fun expect(text:String) { if(!accept(text)) throw ParseFailure(at.line,"Expected '$text', found '${at.text}'") }
-        fun program(source:String):FirmwareProgram {
-            val setup=mutableListOf<Statement>()
-            val loop=mutableListOf<Statement>()
-            var inLoop=false
-            while(at.text!="<EOF>") {
-                if(at.text=="from" || at.text=="import") {
-                    while(at.text!="<EOF>" && at.line==tokens.getOrElse(index){at}.line && at.text!="<EOF>") {
-                        val line=at.line
-                        while(at.text!="<EOF>" && at.line==line) take()
-                    }
-                    continue
-                }
-                val stmt=statement()
-                if(stmt is Statement.While && !inLoop && loop.isEmpty() && isTrue(stmt.condition)) {
-                    loop+=stmt.body
-                    inLoop=true
-                } else if(inLoop) loop+=stmt else setup+=stmt
-            }
-            if(loop.isEmpty()) loop+=Statement.Evaluate(Expression.Call("delay",listOf(Expression.Literal(1000.0)),at.line),at.line)
-            return FirmwareProgram(setup,loop,source,emptySet())
-        }
-        private fun isTrue(expr:Expression)=expr is Expression.Name && expr.name=="True" ||
-            expr is Expression.Literal && expr.value==1.0
-        private fun statement():Statement {
-            val line=at.line
-            if(accept("if")) {
-                val condition=expression()
-                expect(":")
-                return Statement.Branch(condition,suite(line),if(accept("else")) { expect(":");suite(line) } else null,line)
-            }
-            if(accept("while")) {
-                val condition=expression();expect(":")
-                return Statement.While(condition,suite(line),line)
-            }
-            if(at.kind!=1) throw ParseFailure(line,"Expected a statement")
-            val name=take().text
-            if(accept("=")) {
-                val value=expression()
-                return Statement.Assign(name,rewrite(value),line)
-            }
-            return Statement.Evaluate(callFrom(name,line),line)
-        }
-        private fun suite(line:Int):Statement {
+        var pos=0
+        val objects=mutableMapOf<String,String>()
+        val functions=mutableMapOf<String,List<Statement>>()
+        fun expression(text:String,line:Int):Expression=ExprParser(text,line).parse()
+        lateinit var suite:(Int)->List<Statement>
+        suite={ indent ->
             val body=mutableListOf<Statement>()
-            val start=at.line
-            if(start==line) body+=statement()
-            else {
-                val indentLine=start
-                while(at.text!="<EOF>" && (at.line==indentLine || at.text in setOf("if","while") && at.line>line)) {
-                    val before=index
-                    body+=statement()
-                    if(index==before) break
-                    if(at.text in setOf("from","import","<EOF>")) break
-                    if(at.kind==1 && at.text in setOf("def","class")) throw ParseFailure(at.line,"Functions and classes are not supported.")
-                    if(body.size>1 && at.line<=indentLine && at.text!="if" && at.text!="while") break
+            while(pos<rows.size && rows[pos].indent>=indent) {
+                val row=rows[pos]
+                require(row.indent==indent) { "Line ${row.line}: unexpected indentation." }
+                pos++
+                val text=row.text
+                when {
+                    text.startsWith("from ") || text.startsWith("import ") -> {
+                        val module=if(text.startsWith("from ")) text.substringAfter("from ").substringBefore(' ')
+                            else text.substringAfter("import ")
+                        require(module in setOf("machine","time")) { "Line ${row.line}: unsupported module $module." }
+                        if(text.startsWith("from ")) {
+                            val names=text.substringAfter(" import ", "")
+                            require(names.isNotEmpty() && names.split(',').all { it.trim() in supportedApis }) {
+                                "Line ${row.line}: unsupported import." }
+                        }
+                    }
+                    text=="pass" -> Unit
+                    text.startsWith("def ") -> {
+                        val name=text.removePrefix("def ").substringBefore('(')
+                        require(text=="def $name():") { "Line ${row.line}: only zero-argument functions are supported." }
+                        require(pos<rows.size && rows[pos].indent>indent) { "Line ${row.line}: expected function body." }
+                        functions[name]=suite(rows[pos].indent)
+                    }
+                    text.startsWith("while ") || text.startsWith("if ") -> {
+                        val isWhile=text.startsWith("while ")
+                        require(text.endsWith(":")) { "Line ${row.line}: expected ':'." }
+                        val condition=expression(text.substringAfter(' ').dropLast(1),row.line)
+                        require(pos<rows.size && rows[pos].indent>indent) { "Line ${row.line}: expected indented body." }
+                        val block=Statement.Block(suite(rows[pos].indent),row.line)
+                        var other:Statement?=null
+                        if(!isWhile && pos<rows.size && rows[pos].indent==indent && rows[pos].text=="else:") {
+                            pos++
+                            require(pos<rows.size && rows[pos].indent>indent) { "Expected indented else body." }
+                            other=Statement.Block(suite(rows[pos].indent),row.line)
+                        }
+                        body+=if(isWhile) Statement.While(condition,block,row.line)
+                            else Statement.Branch(condition,block,other,row.line)
+                    }
+                    else -> {
+                        val assignment=Regex("^([A-Za-z_][A-Za-z0-9_]*)\\s*(\\+=|-=|=(?!=))\\s*(.+)$").matchEntire(text)
+                        if(assignment!=null) {
+                            val (name,op,value)=assignment.destructured
+                            val expr=expression(value,row.line)
+                            if(expr is Expression.Call && expr.name in methods) objects[name]=expr.name
+                            body+=Statement.Assign(name,if(op=="=") expr else Expression.Binary(Expression.Name(name),op.take(1),expr),row.line)
+                        } else body+=Statement.Evaluate(expression(text,row.line) as? Expression.Call
+                            ?: error("Line ${row.line}: expected assignment or API call."),row.line)
+                    }
                 }
             }
-            return Statement.Block(body,line)
+            body
         }
-        private fun callFrom(name:String,line:Int):Expression.Call {
-            expect("(")
-            val args=mutableListOf<Expression>()
-            if(at.text!=")") { args+=expression();while(accept(",")) args+=expression() }
-            expect(")")
-            return Expression.Call(mapCall(name),args.map(::rewrite),line)
+        val body=suite(0)
+        var loop=listOf<Statement>(Statement.Evaluate(Expression.Call("sleep_ms",listOf(Expression.Literal(1000.0)),1),1))
+        val setup=body.toMutableList()
+        val main=body.indexOfFirst { it is Statement.While && it.condition==Expression.Name("True") }
+        if(main>=0) {
+            require(main==body.lastIndex) { "Statements after while True are unreachable." }
+            loop=((body[main] as Statement.While).body as Statement.Block).body
+            setup.removeAt(main)
         }
-        private fun mapCall(name:String)=when(name) {
-            "Pin" -> "pinMode"
-            "time.sleep" -> "delaySeconds"
-            "time.sleep_ms" -> "delay"
-            "print" -> "Serial.println"
-            "I2C.scan" -> "Wire.scan"
-            else -> name
-        }
-        private fun rewrite(expr:Expression):Expression=when(expr) {
-            is Expression.Call -> when(expr.name) {
-                "Pin" -> Expression.Call("pinMode",
-                    listOf(expr.args[0],if(expr.args.getOrNull(1) is Expression.Name &&
-                        (expr.args[1] as Expression.Name).name.endsWith("OUT")) Expression.Literal(1.0)
-                    else Expression.Literal(0.0)),expr.line)
-                else -> expr
+        fun validateExpr(expr:Expression) {
+            when(expr) {
+                is Expression.Call -> {
+                    val name=expr.name
+                    require(name in setOf("__bytes","__index") || name.startsWith("__kw_") || name in supportedApis || name in functions ||
+                        name.substringAfter('.', "") in (methods[objects[name.substringBefore('.')]] ?: emptySet())) {
+                        "Line ${expr.line}: unsupported API $name." }
+                    if(name in setOf("Pin","ADC","PWM") && board!=null) {
+                        val arg=expr.args.firstOrNull()
+                        val value=(arg as? Expression.Literal)?.value
+                        if(value!=null) {
+                            val channel=(value as? Number)?.toInt()
+                            val mapped=if(name=="ADC" && board.definition.family in setOf(
+                                com.indianservers.circuitssimulator.domain.BoardFamily.RP2040,
+                                com.indianservers.circuitssimulator.domain.BoardFamily.RP2350) && channel in 0..2) 26+channel!! else value
+                            val pin=board.resolve(mapped,analog=name=="ADC")
+                            val caps=board.definition.pin(pin)!!.capabilities
+                            if(name=="Pin" && (expr.args.getOrNull(1)==Expression.Name("Pin.OUT") ||
+                                expr.args.getOrNull(1)==Expression.Literal(1.0)))
+                                require(com.indianservers.circuitssimulator.domain.PinCapability.DIGITAL_OUTPUT in caps) { "$pin is not an output pin." }
+                            require(name!="ADC" || com.indianservers.circuitssimulator.domain.PinCapability.ANALOG_INPUT in caps) { "$pin has no ADC." }
+                            require(name!="PWM" || com.indianservers.circuitssimulator.domain.PinCapability.PWM in caps) { "$pin has no PWM." }
+                        }
+                    }
+                    expr.args.forEach(::validateExpr)
+                }
+                is Expression.Binary -> { validateExpr(expr.left);validateExpr(expr.right) }
+                is Expression.Unary -> validateExpr(expr.value)
+                else -> Unit
             }
-            is Expression.Name -> when(expr.name) {
-                "True","Pin.OUT" -> Expression.Literal(1.0)
-                "False","Pin.IN" -> Expression.Literal(0.0)
-                else -> expr
-            }
-            else -> expr
         }
-        private fun expression(minPrecedence:Int=0):Expression {
+        fun validate(stmt:Statement) {
+            when(stmt) {
+                is Statement.Assign -> validateExpr(stmt.value)
+                is Statement.Evaluate -> validateExpr(stmt.call)
+                is Statement.Block -> stmt.body.forEach(::validate)
+                is Statement.Branch -> { validateExpr(stmt.condition);validate(stmt.yes);stmt.no?.let(::validate) }
+                is Statement.While -> { validateExpr(stmt.condition);validate(stmt.body) }
+                is Statement.For -> error("Unsupported Python for loop.")
+            }
+        }
+        body.forEach(::validate);functions.values.flatten().forEach(::validate)
+        return FirmwareProgram(setup,loop,source,emptySet(),functions,true)
+    }
+    private class ExprParser(text:String,private val line:Int) {
+        private val tokenPattern=Regex("""(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#[^\n]*|0[xX][0-9a-fA-F]+|\d+(?:\.\d+)?|[A-Za-z_][A-Za-z0-9_.]*|==|!=|<=|>=|[-+*/%(),\[\]=<>])""")
+        private val tokens=tokenPattern.findAll(text).filterNot { it.value.startsWith("#") }.map { it.value }.toList()
+        init {
+            require(tokenPattern.replace(text,"").isBlank()) { "Line $line: unsupported syntax." }
+            var depth=0
+            tokens.forEach { token ->
+                if(token in setOf("(","[")) depth++
+                if(token in setOf(")","]")) depth--
+                require(depth in 0..64) { "Line $line: invalid or excessive expression nesting." }
+            }
+        }
+        private var i=0
+        private val at get()=tokens.getOrNull(i) ?: "<EOF>"
+        private fun take()=tokens[i++]
+        private fun accept(s:String)=if(at==s) { i++;true } else false
+        private fun expect(s:String) { require(accept(s)) { "Line $line: expected '$s', found '$at'." } }
+        fun parse():Expression=expr().also { require(i==tokens.size) { "Line $line: unexpected '$at'." } }
+        private fun expr(min:Int=0):Expression {
             var left=when {
-                accept("not") -> Expression.Unary("!",expression(7))
-                accept("-") -> Expression.Unary("-",expression(7))
-                accept("(") -> expression().also { expect(")") }
-                at.kind==3 -> Expression.Literal(take().text.toDoubleOrNull()
-                    ?: throw ParseFailure(at.line,"Invalid number"))
-                at.kind==2 -> Expression.Literal(take().text)
-                at.kind==1 -> {
+                accept("not") -> Expression.Unary("!",expr(7))
+                accept("-") -> Expression.Unary("-",expr(7))
+                accept("(") -> expr().also { expect(")") }
+                accept("[") -> Expression.Call("__bytes",args("]"),line)
+                at.startsWith("'") || at.startsWith("\"") -> Expression.Literal(take().drop(1).dropLast(1).replace("\\n","\n").replace("\\r","\r"))
+                at.startsWith("0x",true) -> Expression.Literal(take().drop(2).toInt(16).toDouble())
+                at.firstOrNull()?.isDigit()==true -> Expression.Literal(take().toDouble())
+                at.firstOrNull()?.let { it.isLetter() || it=='_' }==true -> {
                     val name=take()
-                    if(at.text=="(") callFrom(name.text,name.line) else Expression.Name(name.text)
+                    if(accept("(")) Expression.Call(name,args(")"),line) else Expression.Name(name)
                 }
-                else -> throw ParseFailure(at.line,"Expected expression")
+                else -> error("Line $line: expected expression, found '$at'.")
             }
-            val precedence=mapOf("or" to 1,"and" to 2,"==" to 3,"!=" to 3,
-                "<" to 4,">" to 4,"<=" to 4,">=" to 4,
-                "+" to 5,"-" to 5,"*" to 6,"/" to 6,"% " to 6)
-            while((precedence[at.text] ?: -1)>=minPrecedence) {
-                val op=take().text
-                val mapped=when(op) { "and" -> "&&";"or" -> "||";else -> op }
-                left=Expression.Binary(left,mapped,expression(precedence.getValue(op)+1))
+            if(accept("[")) left=Expression.Call("__index",listOf(left,expr().also { expect("]") }),line)
+            val precedence=mapOf("or" to 1,"and" to 2,"==" to 3,"!=" to 3,"<" to 4,">" to 4,"<=" to 4,">=" to 4,
+                "+" to 5,"-" to 5,"*" to 6,"/" to 6,"%" to 6)
+            while((precedence[at] ?: -1)>=min) {
+                val op=take()
+                left=Expression.Binary(left,when(op) { "and" -> "&&";"or" -> "||";else -> op },expr(precedence.getValue(op)+1))
             }
             return left
+        }
+        private fun args(close:String):List<Expression> {
+            val result=mutableListOf<Expression>()
+            if(accept(close)) return result
+            do {
+                if(tokens.getOrNull(i+1)=="=") {
+                    val key=take();expect("=")
+                    result+=Expression.Call("__kw_$key",listOf(expr()),line)
+                } else result+=expr()
+                if(at==close) break
+            } while(accept(","))
+            expect(close);return result
         }
     }
 }

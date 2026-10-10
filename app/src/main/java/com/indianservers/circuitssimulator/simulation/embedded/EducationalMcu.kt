@@ -9,7 +9,7 @@ import com.indianservers.circuitssimulator.simulation.digital.LogicState
 import kotlin.math.abs
 import kotlin.math.floor
 
-enum class PinMode { INPUT, OUTPUT, INPUT_PULLUP }
+enum class PinMode { INPUT, OUTPUT, INPUT_PULLUP, INPUT_PULLDOWN }
 enum class PinLevel { LOW, HIGH }
 
 data class BoardElectricalSpec(
@@ -35,14 +35,15 @@ data class BoardElectricalSpec(
 
 data class GpioReading(val mode: PinMode, val level: PinLevel, val currentAmps: Double,
                        val overCurrent: Boolean, val damaged: Boolean,
-                       val pwmDuty:Double?=null,val pwmFrequencyHz:Double?=null)
+                       val pwmDuty:Double?=null,val pwmFrequencyHz:Double?=null,val overVoltage:Boolean=false)
 data class McuStep(val circuitResult: DcResult, val pins: Map<String,GpioReading>,
                    val timeSeconds: Double)
 
 /** DC electrical GPIO/ADC foundation. Firmware, buses and transient scheduling are separate work. */
 class EducationalMcu(private val bindings: Map<String,TerminalRef>,
                      val spec: BoardElectricalSpec = BoardElectricalSpec(),
-                     private val solver: DcSolver = DcSolver()) {
+                     private val solver: DcSolver = DcSolver(),
+                     private val maxInputVoltages:Map<String,Double> = emptyMap()) {
     private data class Pin(var mode:PinMode=PinMode.INPUT,var level:PinLevel=PinLevel.LOW,
                            var i2t:Double=0.0,var damaged:Boolean=false,
                            var pwmDuty:Double?=null,var pwmFrequencyHz:Double=490.0)
@@ -58,6 +59,7 @@ class EducationalMcu(private val bindings: Map<String,TerminalRef>,
         timeSeconds=0.0
     }
     fun configure(name:String,mode:PinMode) { pins.getValue(name).apply { this.mode=mode;pwmDuty=null } }
+    fun synchronizeClock(seconds:Double) { require(seconds>=0);timeSeconds=seconds }
     fun write(name:String,level:PinLevel) { pins.getValue(name).apply { this.level=level;pwmDuty=null } }
     fun pwmWrite(name:String,duty:Double,frequencyHz:Double=490.0) {
         require(duty in 0.0..1.0 && frequencyHz.isFinite() && frequencyHz>0)
@@ -95,6 +97,7 @@ class EducationalMcu(private val bindings: Map<String,TerminalRef>,
         when {
             pin.damaged -> null
             pin.mode==PinMode.INPUT_PULLUP -> ExternalDrive(terminal,spec.supplyVoltage,30000.0)
+            pin.mode==PinMode.INPUT_PULLDOWN -> ExternalDrive(terminal,0.0,30000.0)
             pin.mode==PinMode.OUTPUT -> ExternalDrive(terminal,
                 if(levelAt(name,sampleTime)==PinLevel.HIGH) spec.supplyVoltage else 0.0,spec.outputResistanceOhms)
             else -> null
@@ -109,6 +112,8 @@ class EducationalMcu(private val bindings: Map<String,TerminalRef>,
                 (target-(result.nodeVoltages[terminal] ?: 0.0))/spec.outputResistanceOhms
             } else 0.0
             currents[name]=current
+            val voltage=result.nodeVoltages[terminal] ?: 0.0
+            if(maxInputVoltages[name]?.let { voltage>it+.3 || voltage<-.3 }==true) pin.damaged=true
             if(abs(current)>spec.maxPinCurrentAmps) {
                 pin.i2t+=current*current*stepSeconds
                 if(pin.i2t>=spec.damageI2tAmpSquaredSeconds) pin.damaged=true
@@ -117,8 +122,11 @@ class EducationalMcu(private val bindings: Map<String,TerminalRef>,
         if(result.error==null) { latest=result;timeSeconds=sampleTime }
         return pins.mapValues { (name,pin) ->
             val amps=if(pin.damaged) 0.0 else currents.getValue(name)
-            GpioReading(pin.mode,levelAt(name,sampleTime),amps,abs(amps)>spec.maxPinCurrentAmps,pin.damaged,
-                pin.pwmDuty,pin.pwmDuty?.let { pin.pwmFrequencyHz })
+            val voltage=result.nodeVoltages[bindings.getValue(name)] ?: 0.0
+            val level=if(pin.mode==PinMode.OUTPUT) levelAt(name,sampleTime) else
+                if(voltage>=spec.supplyVoltage*spec.inputHighMinFraction) PinLevel.HIGH else PinLevel.LOW
+            GpioReading(pin.mode,level,amps,abs(amps)>spec.maxPinCurrentAmps,pin.damaged,
+                pin.pwmDuty,pin.pwmDuty?.let { pin.pwmFrequencyHz },maxInputVoltages[name]?.let { voltage>it+.3 || voltage<-.3 } ?: false)
         }
     }
     fun step(circuit:Circuit,stepSeconds:Double):McuStep {

@@ -3,7 +3,8 @@ package com.indianservers.circuitssimulator.firmware
 import com.indianservers.circuitssimulator.domain.PinCapability
 
 data class FirmwareProgram(val setup:List<Statement>,val loop:List<Statement>,
-                           val source:String,val usedPins:Set<String>)
+                           val source:String,val usedPins:Set<String>,
+                           val functions:Map<String,List<Statement>> = emptyMap(),val microPython:Boolean=false)
 sealed interface Expression {
     data class Literal(val value:Any?):Expression
     data class Name(val name:String):Expression
@@ -26,21 +27,24 @@ private class ParseFailure(val at:Int,message:String):IllegalArgumentException("
 /** A deliberately bounded Arduino-like grammar. No C++ preprocessor, pointers, libraries, or arbitrary calls. */
 object ArduinoSubset {
     val supportedApis=setOf("pinMode","digitalWrite","digitalRead","analogRead","analogWrite",
-        "delay","millis","micros","map","constrain","hex","tone","noTone","pulseIn",
+        "delay","delayMicroseconds","millis","micros","map","constrain","hex","tone","noTone","pulseIn",
+        "attachInterrupt","detachInterrupt","digitalPinToInterrupt",
         "Serial.begin","Serial.print","Serial.println","Serial.write","Serial.available","Serial.read",
         "Wire.begin","Wire.beginTransmission","Wire.write","Wire.endTransmission","Wire.requestFrom",
-        "Wire.read","Wire.available","SPI.begin","SPI.transfer",
+        "Wire.read","Wire.available","SPI.begin","SPI.transfer","SPI.setDataMode","SPI.setClockDivider","SPI.setBitOrder",
         "Servo.attach","Servo.write","Servo.read")
     private val arity=mapOf("pinMode" to 2,"digitalWrite" to 2,"digitalRead" to 1,
-        "analogRead" to 1,"analogWrite" to 2,"delay" to 1,"millis" to 0,"micros" to 0,
+        "analogRead" to 1,"analogWrite" to 2,"delay" to 1,"delayMicroseconds" to 1,"millis" to 0,"micros" to 0,
+        "attachInterrupt" to 3,"detachInterrupt" to 1,"digitalPinToInterrupt" to 1,
         "map" to 5,"constrain" to 3,"hex" to 1,"tone" to 2,"noTone" to 1,"pulseIn" to 2,
         "Serial.begin" to 1,"Serial.print" to 1,"Serial.println" to 1,"Serial.write" to 1,
         "Serial.available" to 0,"Serial.read" to 0,"Wire.begin" to 0,"Wire.beginTransmission" to 1,
         "Wire.write" to 1,"Wire.endTransmission" to 0,"Wire.requestFrom" to 2,"Wire.read" to 0,
-        "Wire.available" to 0,"SPI.begin" to 0,"SPI.transfer" to 1,
+        "Wire.available" to 0,"SPI.begin" to 0,"SPI.transfer" to 1,"SPI.setDataMode" to 1,"SPI.setClockDivider" to 1,"SPI.setBitOrder" to 1,
         "Servo.attach" to 1,"Servo.write" to 1,"Servo.read" to 0)
     val unsupportedLibraries=setOf("WiFi.h","WiFiClient.h","BluetoothSerial.h","ESP8266WiFi.h","HTTPClient.h")
     fun canonicalApi(name:String):String {
+        if(name.substringBefore('.').matches(Regex("Serial[0-3]"))) return "Serial."+name.substringAfter('.')
         if(name in supportedApis) return name
         val method=name.substringAfterLast('.')
         return when(method) {
@@ -54,22 +58,36 @@ object ArduinoSubset {
     fun compile(source:String,board:FirmwareBoard?=null):FirmwareProgram {
         require(source.length<=20000) { "Firmware source exceeds 20,000 characters." }
         val lexer=Lexer(source)
-        val parser=Parser(lexer.tokens())
+        val tokens=lexer.tokens()
+        var depth=0
+        tokens.forEach { token ->
+            if(token.kind!=2 && token.text in setOf("{","(","[")) depth++
+            if(token.kind!=2 && token.text in setOf("}",")","]")) depth--
+            require(depth in 0..64) { "Line ${token.line}: invalid or excessive nesting." }
+        }
+        val parser=Parser(tokens)
         val program=parser.program(source)
         if(board!=null) validate(program,board)
         return program
     }
 
-    private fun validate(program:FirmwareProgram,board:FirmwareBoard) {
+    internal fun validate(program:FirmwareProgram,board:FirmwareBoard) {
         fun check(expr:Expression) {
             when(expr) {
                 is Expression.Call -> {
                     val api=canonicalApi(expr.name)
-                    if(api !in supportedApis) throw ParseFailure(expr.line,
+                    if(api !in supportedApis && expr.name !in program.functions) throw ParseFailure(expr.line,
                         "Unsupported API ${expr.name}; this runtime is a documented subset, not arbitrary C++.")
                     val expected=arity[api]
+                    if(expr.name in program.functions && expr.args.isNotEmpty()) throw ParseFailure(expr.line,"Void helpers accept no arguments in this runtime.")
+                    if(expr.name.startsWith("Serial") && expr.name.contains('.')) {
+                        val port=expr.name.substringBefore('.')
+                        if(board.serialPorts().none { it.name==port }) throw ParseFailure(expr.line,"${board.definition.product} has no $port hardware UART.")
+                    }
                     if(expected!=null && expr.args.size!=expected &&
                         !(api=="Wire.begin" && expr.args.size in 0..2) &&
+                        !(api=="Wire.endTransmission" && expr.args.size in 0..1) &&
+                        !(api=="Serial.begin" && expr.args.size in 1..2) &&
                         !(api=="pulseIn" && expr.args.size in 2..3) &&
                         !(api=="tone" && expr.args.size in 2..3) &&
                         !(api=="Serial.println" && expr.args.size in 0..1))
@@ -97,7 +115,7 @@ object ArduinoSubset {
                             } else null
                             val needed=when {
                                 capability!=null -> capability
-                                api=="pinMode" && modeName in setOf("OUTPUT","1") -> PinCapability.DIGITAL_OUTPUT
+                                api=="pinMode" && modeName in setOf("OUTPUT","1","1.0") -> PinCapability.DIGITAL_OUTPUT
                                 else -> null
                             }
                             if(needed!=null && needed !in pin.capabilities) {
@@ -128,7 +146,7 @@ object ArduinoSubset {
                 is Statement.For -> { stmt.init?.let(::walk);check(stmt.condition);stmt.step?.let(::walk);walk(stmt.body) }
             }
         }
-        program.setup.forEach(::walk);program.loop.forEach(::walk)
+        program.setup.forEach(::walk);program.loop.forEach(::walk);program.functions.values.flatten().forEach(::walk)
     }
 
     private class Lexer(private val source:String) {
@@ -142,6 +160,9 @@ object ArduinoSubset {
                     val start=i
                     while(i<source.length && source[i]!='\n') i++
                     val lineText=source.substring(start,i)
+                    val include=Regex("#include\\s*[<\"]([^>\"]+)[>\"]").find(lineText)?.groupValues?.get(1)
+                    if(include!=null && include !in setOf("Arduino.h","Wire.h","SPI.h","Servo.h"))
+                        throw ParseFailure(line,"Library $include is not supported by the bounded runtime.")
                     unsupportedLibraries.firstOrNull { lineText.contains(it) }?.let { library ->
                         throw ParseFailure(line,"Library \"$library\" is not supported by this simulator runtime yet.")
                     }
@@ -185,7 +206,7 @@ object ArduinoSubset {
                     out+=Token(source.substring(start,i),line,3);continue
                 }
                 val pair=source.substring(i,(i+2).coerceAtMost(source.length))
-                if(pair in setOf("==","!=","<=",">=","&&","||")) { out+=Token(pair,line);i+=2;continue }
+                if(pair in setOf("==","!=","<=",">=","&&","||","++","--","+=","-=")) { out+=Token(pair,line);i+=2;continue }
                 if(c in "{}();,+-*/%!<>=") { out+=Token(c.toString(),line);i++;continue }
                 throw ParseFailure(line,"Unexpected character '$c'")
             }
@@ -207,8 +228,9 @@ object ArduinoSubset {
         fun program(source:String):FirmwareProgram {
             var setup:List<Statement>?=null;var loop:List<Statement>?=null
             val globals=mutableListOf<Statement>()
+            val functions=mutableMapOf<String,List<Statement>>()
             while(at.text!="<EOF>") {
-                if(at.text in setOf("const","static","int","long","float","double","bool","boolean","String")) {
+                if(at.text in setOf("const","static","volatile","int","long","float","double","bool","boolean","String")) {
                     globals+=statementPrefix()
                     continue
                 }
@@ -219,21 +241,19 @@ object ArduinoSubset {
                 }
                 expect("void")
                 val name=identifier()
-                if(name.text !in setOf("setup","loop")) throw ParseFailure(name.line,
-                    "Only void setup() and void loop() are supported.")
                 expect("(");expect(")")
                 val body=block().body
                 if(name.text=="setup") {
                     if(setup!=null) throw ParseFailure(name.line,"Duplicate setup()")
                     setup=globals+body
-                } else {
+                } else if(name.text=="loop") {
                     if(loop!=null) throw ParseFailure(name.line,"Duplicate loop()")
                     loop=body
-                }
+                } else { if(functions.put(name.text,body)!=null) throw ParseFailure(name.line,"Duplicate function ${name.text}") }
             }
             if(setup==null || loop==null) throw ParseFailure(at.line,"Both setup() and loop() are required.")
             val pins=Regex("\\b(?:D|A|GP|IO)\\d+\\b").findAll(source).map { it.value }.toSet()
-            return FirmwareProgram(setup,loop,source,pins)
+            return FirmwareProgram(setup,loop,source,pins,functions)
         }
         private fun block():Statement.Block {
             val line=at.line;expect("{")
@@ -268,10 +288,16 @@ object ArduinoSubset {
         }
         private fun statementPrefix(requireSemicolon:Boolean=true):Statement {
             val line=at.line
-            while(accept("const") || accept("static")) { }
+            while(accept("const") || accept("static") || accept("volatile")) { }
             val declared=at.text in setOf("int","long","float","double","bool","boolean","String")
             if(declared) take()
             val name=identifier().text
+            if(at.text in setOf("++","--","+=","-=")) {
+                val op=take().text
+                val rhs=if(op in setOf("++","--")) Expression.Literal(1.0) else expression()
+                if(requireSemicolon) expect(";")
+                return Statement.Assign(name,Expression.Binary(Expression.Name(name),if(op.startsWith("+")) "+" else "-",rhs),line)
+            }
             if(accept("=")) {
                 val value=expression()
                 if(requireSemicolon) expect(";")

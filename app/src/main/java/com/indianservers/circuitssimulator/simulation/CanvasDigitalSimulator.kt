@@ -28,7 +28,7 @@ class CanvasDigitalSimulator(private val transient:TransientSolver = TransientSo
 
 /** Retains logic events, including clock phase, across successive live slices. */
 class CanvasDigitalSession(private val circuit:Circuit,private val transient:TransientSolver,
-                           private val startTimeSeconds:Double=0.0) {
+                           private val startTimeSeconds:Double=0.0,private val firmwareManaged:Boolean=false) {
     private val family=LogicFamily.CMOS_3V3
     private val gates=circuit.components.filter { it.kind.isLogicGate }
     private val customCombinational=circuit.components.filter { it.kind in setOf(
@@ -38,11 +38,11 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
     private val sequential=circuit.components.filter { it.kind in setOf(
         Kind.D_FLIP_FLOP,Kind.T_FLIP_FLOP,Kind.COUNTER_4,
         Kind.SR_LATCH,Kind.D_LATCH,Kind.JK_FLIP_FLOP) }
-    private val adcs=circuit.components.filter { it.kind==Kind.ADC_2 }
-    private val dacs=circuit.components.filter { it.kind==Kind.DAC_2 }
+    private val adcs=circuit.components.filter { !firmwareManaged && it.kind==Kind.ADC_2 }
+    private val dacs=circuit.components.filter { !firmwareManaged && it.kind==Kind.DAC_2 }
     private val logicInputs=circuit.components.filter { it.kind==Kind.LOGIC_INPUT }
     private val logicOutputs=circuit.components.filter { it.kind==Kind.LOGIC_OUTPUT }
-    private val shifts=circuit.components.filter { it.kind==Kind.SHIFT_74HC595 }
+    private val shifts=circuit.components.filter { !firmwareManaged && it.kind==Kind.SHIFT_74HC595 }
     private val decades=circuit.components.filter { it.kind==Kind.COUNTER_CD4017 }
     private fun outputNode(part:com.indianservers.circuitssimulator.domain.PlacedComponent,pin:Int)=
         if(part.kind.isLogicGate) part.id+":out" else "${part.id}:out$pin"
@@ -176,7 +176,19 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
         scheduleClocksThrough(stopTime)
         val result=transient.simulate(circuit,durationSeconds,stepSeconds,initialCapacitorVoltages,
             initialInductorCurrents,
-            externalDrivesAt={ time ->
+            externalDrivesAt={ time -> electricalDrives(time) },
+            nextEventAfter={ engine.events.peekTime() },
+            digitalAt={ time,voltages -> observeElectrical(time,voltages) },checkpoint=checkpoint)
+        val snapshot=result.checkpoint
+        if(snapshot==null) result else result.copy(checkpoint=snapshot.copy(
+            digitalNodes=(inputPins.keys+outputPins.keys+oscillators.filter {
+                it.kind==Kind.TIMER_555 }.map { it.id+":osc" }).associateWith(engine::state),
+            digitalBits=storedBits.toMap(),digitalCounters=counterValues.toMap(),
+            digitalShiftRegisters=shiftValues.toMap(),digitalLatchRegisters=latchValues.toMap(),
+            digitalClockInputs=previousClocks.toMap(),digitalTimerReset=timerReset.toMap(),
+            digitalGrounded=groundedDevices.toSet(),digitalEvents=engine.events.snapshot()))
+    }.getOrElse { TransientResult(error=it.message ?: "Digital simulation failed.") }
+    private fun electricalDrives(time:Double):List<ExternalDrive> {
                 engine.advanceTo(time)
                 val digital=outputPins.mapNotNull { (node,pin) ->
                     val owner=pin.componentId
@@ -205,10 +217,10 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
                     else ExternalDrive(TerminalRef(part.id,2),1.1*((if(low==LogicState.HIGH) 1 else 0)+
                         (if(high==LogicState.HIGH) 2 else 0)),50.0)
                 }
-                digital+analog
-            },
-            nextEventAfter={ engine.events.peekTime() },
-            digitalAt={ time,voltages ->
+                return digital+analog
+
+    }
+    private fun observeElectrical(time:Double,voltages:Map<TerminalRef,Double>):Map<TerminalRef,LogicState> {
                 (adcs+dacs+oscillators.filter { it.kind==Kind.TIMER_555 }).forEach { part ->
                     val groundPin=TerminalRef(part.id,if(part.kind==Kind.DAC_2) 3 else 1)
                     if(groundPin in wiredPins && abs(voltages.getValue(groundPin))<.1)
@@ -348,7 +360,7 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
                     engine.drive("$id:pin11",if(count<5) LogicState.HIGH else LogicState.LOW,time)
                 }
                 engine.advanceTo(time)
-                (inputPins+outputPins).map { (node,pin) ->
+                return (inputPins+outputPins).map { (node,pin) ->
                     pin to if(pin.componentId !in groundedDevices && circuit.components.any {
                             it.id==pin.componentId && it.kind in setOf(Kind.TIMER_555,Kind.ADC_2,
                                 Kind.SHIFT_74HC595,Kind.COUNTER_CD4017)
@@ -363,14 +375,24 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
                         }
                     } else engine.state(node)
                 }.toMap()
-            },checkpoint=checkpoint)
-        val snapshot=result.checkpoint
-        if(snapshot==null) result else result.copy(checkpoint=snapshot.copy(
-            digitalNodes=(inputPins.keys+outputPins.keys+oscillators.filter {
-                it.kind==Kind.TIMER_555 }.map { it.id+":osc" }).associateWith(engine::state),
-            digitalBits=storedBits.toMap(),digitalCounters=counterValues.toMap(),
-            digitalShiftRegisters=shiftValues.toMap(),digitalLatchRegisters=latchValues.toMap(),
-            digitalClockInputs=previousClocks.toMap(),digitalTimerReset=timerReset.toMap(),
-            digitalGrounded=groundedDevices.toSet(),digitalEvents=engine.events.snapshot()))
-    }.getOrElse { TransientResult(error=it.message ?: "Digital simulation failed.") }
+
+    }
+    /** Reuses the canvas event engine for firmware GPIO-to-logic connections. */
+    fun nextElectricalEvent(through:Double):Double? { scheduleClocksThrough(through);return engine.events.peekTime() }
+    fun settleDc(net:Circuit,drives:List<ExternalDrive>,time:Double):DcResult {
+        if(time<engine.nowSeconds) error("Digital clock moved backwards; reset the board session.")
+        if(outputPins.isEmpty()) return DcSolver().solve(net,drives)
+        scheduleClocksThrough(time)
+        var solved=DcSolver().solve(net,drives+electricalDrives(time))
+        repeat(16) {
+            if(solved.error!=null) return solved
+            val before=electricalDrives(time)
+            observeElectrical(time,solved.nodeVoltages)
+            val after=electricalDrives(time)
+            if(before==after) return solved
+            solved=DcSolver().solve(net,drives+after)
+        }
+        return solved
+    }
+
 }

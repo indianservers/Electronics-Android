@@ -17,10 +17,11 @@ object ElectromechanicalParts {
         Parameter(key,label,unit,default,min,max)
     val definitions=listOf(
         Definition(Kind.BUZZER,"Active buzzer draws current when voltage exceeds its start threshold",listOf(
+            p("frequency","Internal oscillator","Hz",2200.0,20.0,10000.0),
             p("resistance","Operating resistance","Ω",120.0,10.0,10000.0),
             p("startVoltage","Start voltage","V",3.0,.1,24.0)),
             keywords=listOf("alarm","sound","beeper"),applications=listOf("Audible alerts"),
-            limitations=listOf("Electrical load and on/off state only; audio is not synthesized.")),
+            limitations=listOf("Generic active oscillator family; optional safe native audio follows solved power; acoustic radiation omitted.")),
         Definition(Kind.SPEAKER,"Moving-coil speaker modeled as a resistive-inductive winding",listOf(
             p("resistance","Voice-coil resistance","Ω",8.0,1.0,1000.0),
             p("inductance","Voice-coil inductance","H",.0005,1e-6,1.0)),

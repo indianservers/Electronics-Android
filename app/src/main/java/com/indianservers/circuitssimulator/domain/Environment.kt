@@ -8,7 +8,8 @@ data class EnvironmentState(
     val distanceCm:Double=40.0,
     val motion:Boolean=false,
     val pressureHpa:Double=1013.0,
-    val soundDb:Double=40.0
+    val soundDb:Double=40.0,
+    val magneticFieldMilliTesla:Double=0.0
 ) {
     init {
         require(temperatureC in -40.0..150.0)
@@ -17,13 +18,14 @@ data class EnvironmentState(
         require(distanceCm in 1.0..400.0)
         require(pressureHpa in 800.0..1200.0)
         require(soundDb in 0.0..140.0)
+        require(magneticFieldMilliTesla in -100.0..100.0)
     }
 }
 
 enum class FirmwareLanguage { ARDUINO_SUBSET, MICROPYTHON_SUBSET }
 
 data class FirmwareAttachment(val boardId:String,val language:FirmwareLanguage,val source:String,
-                              val usbPower:Boolean=false)
+                              val usbPower:Boolean=false,val profileId:String?=null)
 
 enum class EnvironmentPreset { COLD, ROOM, HOT, DARK, INDOOR, SUNLIGHT, NEAR, FAR, MOTION, STILL }
 

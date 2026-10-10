@@ -79,6 +79,7 @@ fun ComponentDetails(p: PlacedComponent,state: SimulatorState,model: SimulatorVi
                 Text("Remove",Modifier.clickable { model.remove(p.id) }.padding(8.dp),color=Color(0xFFFF666E),fontSize=13.sp)
             }
             Spacer(Modifier.height(8.dp))
+            if(p.kind.category=="Embedded") PeripheralInspector(p,state,model)
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Text("Size  ${(p.sizeScale*100).toInt()}%",Modifier.weight(1f),color=TextIce,fontSize=13.sp)
                 Text("−",Modifier.clickable { model.resize(p.id,p.sizeScale-.15f) }.padding(horizontal=12.dp,vertical=6.dp),

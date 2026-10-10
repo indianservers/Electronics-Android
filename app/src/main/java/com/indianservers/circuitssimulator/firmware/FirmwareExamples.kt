@@ -85,7 +85,8 @@ void loop() {
     Serial.println("GREEN");
     delay(400);
 }"""
-    const val SERVO_SWEEP="""Servo servo;
+    const val SERVO_SWEEP="""#include <Servo.h>
+Servo servo;
 void setup() {
     servo.attach(9);
     Serial.begin(9600);
@@ -108,7 +109,8 @@ void loop() {
     Serial.println(temp);
     delay(200);
 }"""
-    const val I2C_SCAN="""void setup() {
+    const val I2C_SCAN="""#include <Wire.h>
+void setup() {
     Serial.begin(9600);
     Wire.begin();
     int addr = 1;
@@ -125,7 +127,8 @@ void loop() {
 void loop() {
     delay(2000);
 }"""
-    const val I2C_TEMP="""void setup() {
+    const val I2C_TEMP="""#include <Wire.h>
+void setup() {
     Serial.begin(9600);
     Wire.begin();
 }
@@ -138,7 +141,8 @@ void loop() {
     int lo = Wire.read();
     int milli = hi * 256 + lo;
     Serial.print("Temperature: ");
-    Serial.println(milli / 100);
+    if (milli >= 32768) { milli = milli - 65536; }
+    Serial.println(milli / 256);
     delay(200);
 }"""
     const val UART_TX="""void setup() {
@@ -176,6 +180,96 @@ while True:
     time.sleep(0.5)
 """
 
+    const val OLED_BLINK="""#include <Wire.h>
+void setup() {
+    Serial.begin(9600);
+    Wire.begin();
+    Wire.beginTransmission(60);
+    Wire.write(0);
+    Wire.write(175);
+    Wire.endTransmission();
+}
+void loop() {
+    int page = 0;
+    while (page < 8) {
+        Wire.beginTransmission(60);
+        Wire.write(0);
+        Wire.write(176 + page);
+        Wire.write(6);
+        Wire.write(19);
+        Wire.endTransmission();
+        Wire.beginTransmission(60);
+        Wire.write(64);
+        int column = 0;
+        while (column < 16) {
+            Wire.write(255);
+            column = column + 1;
+        }
+        int result = Wire.endTransmission();
+        if (result != 0) { Serial.println("OLED not responding: check power and I2C wires"); }
+        page = page + 1;
+    }
+    Serial.println("OLED: rectangle drawn through I2C");
+    delay(500);
+    Wire.beginTransmission(60);
+    Wire.write(0);
+    Wire.write(174);
+    Wire.endTransmission();
+    Serial.println("OLED: display off");
+    delay(500);
+    Wire.beginTransmission(60);
+    Wire.write(0);
+    Wire.write(175);
+    Wire.endTransmission();
+}"""
+    const val PICO_ADC_PWM="""void setup() {
+    Serial.begin(9600);
+    pinMode(15, OUTPUT);
+}
+void loop() {
+    int sample = analogRead(26);
+    analogWrite(15, sample / 16);
+    Serial.print("GP26 ADC: ");
+    Serial.println(sample);
+    delay(100);
+}"""
+    const val LDR_LIGHT="""void setup() {
+    Serial.begin(9600);
+    pinMode(D4, OUTPUT);
+}
+void loop() {
+    int light = analogRead(A0);
+    Serial.print("Light ADC: ");
+    Serial.println(light);
+    if (light < 130) {
+        digitalWrite(D4, HIGH);
+        Serial.println("Lamp ON: dark");
+    } else {
+        digitalWrite(D4, LOW);
+        Serial.println("Lamp OFF: bright");
+    }
+    delay(200);
+}"""
+    const val IRRIGATION_VALVE="""#include <Servo.h>
+Servo valve;
+void setup() {
+    Serial.begin(9600);
+    valve.attach(9);
+}
+void loop() {
+    int moisture = analogRead(A0);
+    Serial.print("Moisture control ADC: ");
+    Serial.println(moisture);
+    if (moisture < 512) {
+        valve.write(90);
+        Serial.println("Valve OPEN: dry");
+    } else {
+        valve.write(0);
+        Serial.println("Valve CLOSED: wet");
+    }
+    delay(100);
+}"""
+
     data class Example(val id:String,val title:String,val language:FirmwareLanguage,val source:String)
     fun examplesFor(kind:Kind):List<Example> {
         val arduino=listOf(
@@ -187,13 +281,39 @@ while True:
             Example("servo","Servo Sweep",FirmwareLanguage.ARDUINO_SUBSET,SERVO_SWEEP),
             Example("i2c","I2C Scanner",FirmwareLanguage.ARDUINO_SUBSET,I2C_SCAN)
         )
+        val boardExamples=if(BoardRegistry.boards.getValue(kind).family==BoardFamily.ARDUINO_AVR) arduino else
+            listOf(Example("board-gpio","Board GPIO / LED",FirmwareLanguage.ARDUINO_SUBSET,starter(kind,"")),
+                Example("serial","Serial Hello",FirmwareLanguage.ARDUINO_SUBSET,SERIAL_HELLO),
+                Example("i2c","I2C Scanner",FirmwareLanguage.ARDUINO_SUBSET,I2C_SCAN))
         return if(BoardSupport.languages(kind).contains(FirmwareLanguage.MICROPYTHON_SUBSET))
-            arduino+Example("mpy-blink","MicroPython Blink",FirmwareLanguage.MICROPYTHON_SUBSET,PICO_BLINK)
-        else arduino
+            boardExamples+Example("mpy-blink","MicroPython Board GPIO",FirmwareLanguage.MICROPYTHON_SUBSET,
+                starter(kind,"",FirmwareLanguage.MICROPYTHON_SUBSET))
+        else boardExamples
     }
 
     fun starter(kind:Kind,circuitName:String,language:FirmwareLanguage=FirmwareLanguage.ARDUINO_SUBSET):String {
-        if(language==FirmwareLanguage.MICROPYTHON_SUBSET) return PICO_BLINK
+        val definition=BoardRegistry.boards.getValue(kind)
+        val output=definition.ledBuiltin ?: when(kind) { Kind.ESP32_DEVKIT -> "IO25";Kind.ESP32_C3_DEVKIT -> "IO4";else -> "D13" }
+        val sketchPin=if(definition.ledBuiltin!=null) "LED_BUILTIN" else output
+        if(language==FirmwareLanguage.MICROPYTHON_SUBSET) return """from machine import Pin
+            |from time import sleep_ms
+            |# ${definition.product}: ${if(definition.ledBuiltin==null) "connect an external LED and resistor to $output" else "mapped onboard LED"}
+            |led = Pin("$output", Pin.OUT)
+            |while True:
+            |    led.value(${if(definition.family==BoardFamily.ESP8266) 0 else 1})
+            |    sleep_ms(500)
+            |    led.value(${if(definition.family==BoardFamily.ESP8266) 1 else 0})
+            |    sleep_ms(500)
+        """.trimMargin()
+        if(definition.family!=BoardFamily.ARDUINO_AVR) return """// ${definition.product}: ${if(definition.ledBuiltin==null) "external LED with resistor on $output" else "mapped onboard LED"}
+            |void setup(){ pinMode($sketchPin, OUTPUT); Serial.begin(9600); }
+            |void loop(){
+            |    digitalWrite($sketchPin, ${if(definition.family==BoardFamily.ESP8266) "LOW" else "HIGH"});
+            |    Serial.println("LED on"); delay(500);
+            |    digitalWrite($sketchPin, ${if(definition.family==BoardFamily.ESP8266) "HIGH" else "LOW"});
+            |    Serial.println("LED off"); delay(500);
+            |}
+        """.trimMargin()
         return when(circuitName) {
             "Blinking LED" -> BLINK
             "Push Button LED" -> BUTTON
@@ -328,12 +448,12 @@ while True:
         val pins=BoardRegistry.boards.getValue(board.kind)
         return base.copy(name="I2C Scanner",components=base.components+listOf(sensor,lcd,pu1,pu2),
             wires=base.wires+listOf(
-                wire(supply,0,sensor,0),wire(sensor,1,ground,0),
-                wire(supply,0,lcd,0),wire(lcd,1,ground,0),
+                wire(board,pins.index("3V3"),sensor,0),wire(sensor,1,ground,0),
+                wire(board,pins.index("3V3"),lcd,0),wire(lcd,1,ground,0),
                 wire(board,pins.index("A4"),sensor,2),wire(board,pins.index("A5"),sensor,3),
                 wire(board,pins.index("A4"),lcd,2),wire(board,pins.index("A5"),lcd,3),
-                wire(supply,0,pu1,0),wire(pu1,1,board,pins.index("A4")),
-                wire(supply,0,pu2,0),wire(pu2,1,board,pins.index("A5"))),
+                wire(board,pins.index("3V3"),pu1,0),wire(pu1,1,board,pins.index("A4")),
+                wire(board,pins.index("3V3"),pu2,0),wire(pu2,1,board,pins.index("A5"))),
             firmware=listOf(FirmwareAttachment(board.id,FirmwareLanguage.ARDUINO_SUBSET,I2C_SCAN,true)))
     }
 
@@ -368,11 +488,11 @@ while True:
         val pins=BoardRegistry.boards.getValue(board.kind)
         return Circuit("ESP32 OLED",listOf(board,supply,ground,lcd,pu1,pu2),listOf(
             wire(supply,0,board,pins.index("3V3")),wire(supply,1,board,pins.index("GND")),
-            wire(supply,1,ground,0),wire(supply,0,lcd,0),wire(lcd,1,ground,0),
+            wire(supply,1,ground,0),wire(board,pins.index("3V3"),lcd,0),wire(lcd,1,ground,0),
             wire(board,pins.index("IO21"),lcd,2),wire(board,pins.index("IO22"),lcd,3),
             wire(supply,0,pu1,0),wire(pu1,1,board,pins.index("IO21")),
             wire(supply,0,pu2,0),wire(pu2,1,board,pins.index("IO22"))),
-            firmware=listOf(FirmwareAttachment(board.id,FirmwareLanguage.ARDUINO_SUBSET,I2C_SCAN,true)))
+            firmware=listOf(FirmwareAttachment(board.id,FirmwareLanguage.ARDUINO_SUBSET,OLED_BLINK,true)))
     }
 
     fun picoAdcCircuit():Circuit {
@@ -388,7 +508,7 @@ while True:
             wire(supply,1,ground,0),wire(supply,0,pot,0),wire(pot,2,ground,0),
             wire(pot,1,board,pins.index("GP26")),
             wire(board,pins.index("GP15"),resistor,0),wire(resistor,1,led,0),wire(led,1,ground,0)),
-            firmware=listOf(FirmwareAttachment(board.id,FirmwareLanguage.ARDUINO_SUBSET,ANALOG_READ,true)))
+            firmware=listOf(FirmwareAttachment(board.id,FirmwareLanguage.ARDUINO_SUBSET,PICO_ADC_PWM,true)))
     }
 
     fun nodeMcuLdrCircuit():Circuit {
@@ -397,14 +517,20 @@ while True:
         val ground=part(Kind.GROUND,"GND1",430f,760f)
         val ldr=part(Kind.LDR,"LDR1",560f,620f)
         val drop=part(Kind.RESISTOR,"R2",560f,480f,mapOf("resistance" to 10000.0,"rating" to .25))
+        val safe=part(Kind.RESISTOR,"R3",500f,550f,mapOf("resistance" to 33000.0,"rating" to .25))
         val resistor=part(Kind.RESISTOR,"R1",600f,300f,mapOf("resistance" to 330.0,"rating" to .25))
         val led=part(Kind.LED,"D1",810f,450f)
         val pins=BoardRegistry.boards.getValue(board.kind)
-        return Circuit("NodeMCU LDR",listOf(board,supply,ground,ldr,drop,resistor,led),listOf(
+        return Circuit("NodeMCU LDR",listOf(board,supply,ground,ldr,drop,safe,resistor,led),listOf(
             wire(supply,0,board,pins.index("3V3")),wire(supply,1,board,pins.index("GND")),
-            wire(supply,1,ground,0),wire(supply,0,ldr,0),wire(ldr,1,board,pins.index("A0")),
+            wire(supply,1,ground,0),wire(supply,0,ldr,0),wire(ldr,1,safe,0),wire(safe,1,board,pins.index("A0")),
             wire(board,pins.index("A0"),drop,0),wire(drop,1,ground,0),
             wire(board,pins.index("D4"),resistor,0),wire(resistor,1,led,0),wire(led,1,ground,0)),
-            firmware=listOf(FirmwareAttachment(board.id,FirmwareLanguage.ARDUINO_SUBSET,ANALOG_READ,true)))
+            firmware=listOf(FirmwareAttachment(board.id,FirmwareLanguage.ARDUINO_SUBSET,LDR_LIGHT,true)))
+    }
+    fun streetLightCircuit()=nodeMcuLdrCircuit().copy(name="Automatic Street Light")
+    fun irrigationCircuit():Circuit {
+        val base=servoCircuit()
+        return base.copy(name="Smart Irrigation",firmware=base.firmware.map { it.copy(source=IRRIGATION_VALVE) })
     }
 }

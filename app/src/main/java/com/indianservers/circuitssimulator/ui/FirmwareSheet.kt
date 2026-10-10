@@ -56,6 +56,7 @@ fun FirmwareSheet(state:SimulatorState,model:SimulatorViewModel) {
     val firmware=state.firmware
     val board=state.circuit.components.firstOrNull { it.id==firmware.boardId && it.kind.isBoard }
     var tab by remember { mutableIntStateOf(0) }
+    LaunchedEffect(firmware.boardId,firmware.running) { if(firmware.running) tab=1 }
     var search by remember { mutableStateOf("") }
     val undo=remember(firmware.boardId) { mutableStateListOf<String>() }
     val redo=remember(firmware.boardId) { mutableStateListOf<String>() }
@@ -73,9 +74,15 @@ fun FirmwareSheet(state:SimulatorState,model:SimulatorViewModel) {
                     "MicroPython subset" else "Arduino subset",color=CodeAmber,fontSize=11.sp)
                 TextButton(onClick={model.showFirmware(false)}) { Text("Close") }
             }
-            Text("${board?.kind?.title ?: "No board"} · executable supported subset · virtual time ${"%.3f".format(Locale.US,firmware.timeMicros/1e6)} s",
+            Text("${state.circuit.name} · ${board?.kind?.title ?: "No board"} · executable supported subset · virtual time ${"%.3f".format(Locale.US,firmware.timeMicros/1e6)} s",
                 color=Muted,fontSize=11.sp)
             if(board!=null) {
+                Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                    state.circuit.components.filter { it.kind.isBoard }.forEach { placed ->
+                        FilterChip(selected=placed.id==firmware.boardId,onClick={model.showFirmware(true,placed.id)},
+                            label={Text("${placed.reference} · ${placed.kind.title}",fontSize=11.sp)})
+                    }
+                }
                 Row(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
                     com.indianservers.circuitssimulator.firmware.BoardSupport.languages(board.kind).forEach { language ->
                         FilterChip(selected=firmware.language==language,onClick={model.setFirmwareLanguage(language)},
@@ -85,13 +92,11 @@ fun FirmwareSheet(state:SimulatorState,model:SimulatorViewModel) {
                 }
             }
             Row(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-                listOf("Code","Serial","Pins","Bus").forEachIndexed { index,label ->
+                listOf("Code","Output","Pins","Bus").forEachIndexed { index,label ->
                     FilterChip(selected=tab==index,onClick={tab=index},label={Text(label)})
                 }
             }
-            when(tab) {
-                0 -> {
-                    Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
                         TextButton(onClick={model.compileFirmware()}) { Text("Compile") }
                         TextButton(onClick={if(firmware.running) model.pauseFirmware() else model.runFirmware()}) {
                             Text(if(firmware.running) "Pause" else "Run") }
@@ -99,6 +104,9 @@ fun FirmwareSheet(state:SimulatorState,model:SimulatorViewModel) {
                         TextButton(onClick={model.resetFirmware()}) { Text("Reset") }
                         TextButton(onClick={model.stopFirmware()}) { Text("Stop") }
                     }
+
+            when(tab) {
+                0 -> {
                     Row(horizontalArrangement=Arrangement.spacedBy(5.dp),verticalAlignment=Alignment.CenterVertically) {
                         TextButton(enabled=undo.isNotEmpty(),onClick={
                             if(undo.isNotEmpty()) { redo.add(firmware.source);model.setFirmwareSource(undo.removeAt(undo.lastIndex)) }
@@ -139,18 +147,31 @@ fun FirmwareSheet(state:SimulatorState,model:SimulatorViewModel) {
                 }
                 1 -> {
                     var serialIn by remember { mutableStateOf("") }
+                    var serialPort by remember(board?.id) { mutableStateOf("Serial") }
+                    var baud by remember(board?.id) { mutableIntStateOf(9600) }
+                    var ending by remember { mutableStateOf("LF") }
                     Row(verticalAlignment=Alignment.CenterVertically) {
-                        Text("Serial Monitor",Modifier.weight(1f),color=TextIce)
+                        Text("Live output · Serial Monitor",Modifier.weight(1f),color=TextIce)
                         TextButton(onClick={model.setSerialPaused(!firmware.serialPaused)}) {
                             Text(if(firmware.serialPaused) "Resume" else "Pause") }
                         TextButton(onClick=model::clearFirmwareConsole) { Text("Clear") }
                     }
-                    Text("Output is produced by executed Serial calls. Baud timing is metadata only.",
+                    Text("Board TX output · monitor sends to selected RX. Baud must match; byte timing is simplified.",
                         color=Muted,fontSize=11.sp)
+                    Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                        board?.let { BoardRegistry.boards.getValue(it.kind).hardware.uartPins.indices.forEach { i ->
+                            val port=BoardRegistry.boards.getValue(it.kind).hardware.uartNames.getOrNull(i) ?: if(i==0) "Serial" else "Serial$i"
+                            FilterChip(serialPort==port,{serialPort=port},label={Text(port,fontSize=10.sp)})
+                        } }
+                        if(board?.let { BoardRegistry.boards.getValue(it.kind).hardware.usbSerial }==true)
+                            FilterChip(serialPort=="Serial",{serialPort="Serial"},label={Text("Serial · USB",fontSize=10.sp)})
+                        listOf(9600,115200).forEach { speed -> FilterChip(baud==speed,{baud=speed},label={Text("$speed baud",fontSize=10.sp)}) }
+                        listOf("None","LF","CRLF").forEach { e -> FilterChip(ending==e,{ending=e},label={Text(e,fontSize=10.sp)}) }
+                    }
                     Row(Modifier.imePadding(),verticalAlignment=Alignment.CenterVertically) {
                         OutlinedTextField(serialIn,{serialIn=it},Modifier.weight(1f),singleLine=true,
                             label={Text("TX to MCU RX")},textStyle=TextStyle(fontSize=11.sp))
-                        TextButton(onClick={model.enqueueSerial(serialIn);serialIn=""}) { Text("Send") }
+                        TextButton(onClick={model.enqueueSerial(serialIn+when(ending) { "LF" -> "\n";"CRLF" -> "\r\n";else -> "" },serialPort,baud);serialIn=""}) { Text("Send") }
                     }
                     val serialScroll=rememberLazyListState()
                     LaunchedEffect(firmware.console.size,firmware.serialPaused) {

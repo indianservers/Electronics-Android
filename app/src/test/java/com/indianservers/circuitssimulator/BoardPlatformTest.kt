@@ -35,7 +35,8 @@ class BoardPlatformTest {
         }
         assertFalse(PinCapability.DIGITAL_OUTPUT in BoardRegistry.boards.getValue(Kind.ARDUINO_NANO).pin("A6")!!.capabilities)
         assertFalse(PinCapability.DIGITAL_OUTPUT in BoardRegistry.boards.getValue(Kind.ESP32_DEVKIT).pin("IO34")!!.capabilities)
-        assertFalse(PinCapability.PWM in BoardRegistry.boards.getValue(Kind.NODEMCU_ESP8266).pin("D0")!!.capabilities)
+        assertTrue(PinCapability.PWM in BoardRegistry.boards.getValue(Kind.NODEMCU_ESP8266).pin("D0")!!.capabilities)
+        assertFalse(PinCapability.INTERRUPT in BoardRegistry.boards.getValue(Kind.NODEMCU_ESP8266).pin("D0")!!.capabilities)
     }
 
     @Test fun poweredGpioDrivesLedButUnpoweredOrInputPinDoesNot() {

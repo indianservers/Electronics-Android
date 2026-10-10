@@ -170,16 +170,16 @@ private val projectItems=listOf(
         R.drawable.project_alarm,"Sensor",SampleCircuits::temperatureMonitor),
     ProjectItem("I2C Scanner","Intermediate","Wire scanner finds the connected I²C devices.","9 Components","Firmware",
         R.drawable.project_irrigation,"Arduino",SampleCircuits::i2cLab),
-    ProjectItem("ESP32 OLED","Intermediate","ESP32-DevKitC V4 I²C OLED on GPIO21/22.","6 Components","Firmware",
+    ProjectItem("ESP32 OLED","Intermediate","Editable code draws and blinks OLED pixels through GPIO21/22 I²C.","6 Components","Firmware",
         R.drawable.project_irrigation,"IoT",SampleCircuits::esp32Oled),
-    ProjectItem("Pico ADC","Beginner","Pico GP26 ADC reads a potentiometer.","6 Components","Firmware",
+    ProjectItem("Pico ADC","Beginner","GP26 potentiometer ADC drives GP15 PWM LED and live serial values.","6 Components","Firmware",
         R.drawable.project_led,"IoT",SampleCircuits::picoAdcPwm),
-    ProjectItem("NodeMCU LDR","Beginner","NodeMCU A0 / GPIO analog input from an LDR.","7 Components","Firmware",
+    ProjectItem("NodeMCU LDR","Beginner","LDR ADC controls D4 LED; change environment light to see it respond.","8 Components","Firmware",
         R.drawable.project_streetlight,"IoT",SampleCircuits::nodeMcuLdr),
-    ProjectItem("Automatic Street Light","Preview","Preview only. This circuit is not included yet.",
-        "Not included","Preview",R.drawable.project_streetlight,"Sensor"),
-    ProjectItem("Smart Irrigation","Preview","Preview only. This circuit is not included yet.",
-        "Not included","Preview",R.drawable.project_irrigation,"Automation")
+    ProjectItem("Automatic Street Light","Beginner","Real LDR divider and code switch the LED in darkness.",
+        "8 Components","Firmware",R.drawable.project_streetlight,"Sensor",com.indianservers.circuitssimulator.firmware.FirmwareExamples::streetLightCircuit),
+    ProjectItem("Smart Irrigation","Intermediate","Adjust the moisture potentiometer; code opens or closes the servo valve.",
+        "7 Components","Firmware",R.drawable.project_irrigation,"Automation",com.indianservers.circuitssimulator.firmware.FirmwareExamples::irrigationCircuit)
 )
 
 @Composable
@@ -190,22 +190,22 @@ internal fun ProjectsPage(modifier:Modifier,query:String,model:SimulatorViewMode
         (category=="All" || item.level==category || item.category==category) &&
             (query.isBlank() || item.title.contains(query,true) || item.summary.contains(query,true))
     }
-    fun openProject(item:ProjectItem) {
+    fun openProject(item:ProjectItem,run:Boolean=false) {
         val launch=item.launch
         if(launch==null) onInfo("${item.title} is a project preview. Open Guide for interactive lessons available now.")
-        else { model.loadSample(launch());onOpenDesigner() }
+        else { model.openRunnableProject(launch(),run);onOpenDesigner() }
     }
     Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal=12.dp)) {
         PromoHero(R.drawable.projects_hero,"★  Featured Projects","Ready-Made","Projects",
-            "Explore ready-made circuits and\nproject ideas. Turn ideas into real circuits.",
-            "Start Building",onClick={openProject(projectItems.first())})
+            "Open the code, run a project and\nwatch its live circuit and serial output.",
+            "Run Blinking LED",onClick={openProject(projectItems.first(),true)})
         Spacer(Modifier.height(10.dp))
         CategoryChips(listOf("All","Beginner","Intermediate","Advanced","Arduino","Sensor","Automation"),
             category,{category=it})
         Spacer(Modifier.height(8.dp))
         entries.chunked(2).forEach { row ->
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-                row.forEach { item -> ProjectCard(item,Modifier.weight(1f),onClick={openProject(item)}) }
+                row.forEach { item -> ProjectCard(item,Modifier.weight(1f),onClick={openProject(item)},onRun={openProject(item,true)}) }
                 if(row.size==1) Spacer(Modifier.weight(1f))
             }
             Spacer(Modifier.height(7.dp))
@@ -232,8 +232,8 @@ internal fun ProjectsPage(modifier:Modifier,query:String,model:SimulatorViewMode
 }
 
 @Composable
-private fun ProjectCard(item:ProjectItem,modifier:Modifier,onClick:()->Unit) {
-    Surface(modifier.height(143.dp).clickable(onClick=onClick),shape=RoundedCornerShape(11.dp),
+private fun ProjectCard(item:ProjectItem,modifier:Modifier,onClick:()->Unit,onRun:()->Unit) {
+    Surface(modifier.height(188.dp).clickable(onClick=onClick),shape=RoundedCornerShape(11.dp),
         color=HubPanel,border=BorderStroke(1.dp,HubLine)) {
         Column {
             Box(Modifier.fillMaxWidth().height(72.dp)) {
@@ -255,6 +255,10 @@ private fun ProjectCard(item:ProjectItem,modifier:Modifier,onClick:()->Unit) {
                 Spacer(Modifier.height(4.dp))
                 Text("◇ ${item.count}    ◷ ${item.time}",color=Color(0xFF9DBFEF),fontSize=8.sp,
                     maxLines=1,overflow=TextOverflow.Ellipsis)
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    TextButton(onClick=onClick) { Text("Code",fontSize=11.sp) }
+                    TextButton(onClick=onRun,enabled=item.launch!=null) { Text("Run project",fontSize=11.sp) }
+                }
             }
         }
     }

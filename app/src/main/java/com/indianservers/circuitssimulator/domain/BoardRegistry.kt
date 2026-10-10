@@ -2,7 +2,7 @@ package com.indianservers.circuitssimulator.domain
 
 enum class PinCapability {
     DIGITAL_INPUT, DIGITAL_OUTPUT, PWM, ANALOG_INPUT, UART, SPI, I2C,
-    POWER_INPUT, POWER_OUTPUT, GROUND, RESET, RESERVED
+    POWER_INPUT, POWER_OUTPUT, GROUND, RESET, RESERVED, INTERRUPT, DAC, TOUCH
 }
 
 /** Header order keeps existing electrical indices stable. Visual (nx,ny) follows official headers. */
@@ -133,7 +133,7 @@ object BoardRegistry {
                 add(PinCapability.PWM)
                 if(n in 26..28) add(PinCapability.ANALOG_INPUT)
                 if(n in setOf(0,1,4,5,8,9,12,13,16,17,20,21)) add(PinCapability.UART)
-                if(n in 0..23) { add(PinCapability.SPI);add(PinCapability.I2C) }
+                if(n in 0..28) { add(PinCapability.SPI);add(PinCapability.I2C) }
             }
         }
         return make(name,3.3,number,extra,
@@ -187,10 +187,10 @@ object BoardRegistry {
         "GP16","GP17","GND","GP18","GP19","GP20","GP21","GND","GP22","RUN",
         "GP26","GP27","AGND","GP28","ADC_VREF","3V3_OUT","3V3_EN","GND","VSYS","VBUS")
     private val unoNames=listOf("D0","D1","D2","D3","D4","D5","D6","D7","D8","D9","D10","D11","D12","D13",
-        "GND","AREF","SDA","SCL","RESET","3V3","5V","GND","VIN","A0","A1","A2","A3","A4","A5","IOREF")
+        "GND","AREF","SDA","SCL","RESET","3V3","5V","GND","VIN","A0","A1","A2","A3","A4","A5","IOREF","NC","GND")
     private val nanoNames=listOf("D1","D0","RESET","GND","D2","D3","D4","D5","D6","D7","D8","D9","D10","D11","D12","D13","3V3","AREF","A0","A1","A2","A3","A4","A5","A6","A7","5V","RESET","GND","VIN")
     private val megaNames=(0..53).map { "D$it" } + (0..15).map { "A$it" }+
-        listOf("3V3","5V","GND","VIN","RESET","AREF","SDA","SCL")
+        listOf("3V3","5V","GND","VIN","RESET","AREF","SDA","SCL","NC","IOREF","GND","GND","5V","5V","GND","GND")
     private val nodemcuNames=listOf("A0","GND","VU","S3","S2","S1","SC","S0","SK","GND","3V3","EN","RST","GND","VIN",
         "D0","D1","D2","D3","D4","3V3","GND","D5","D6","D7","D8","RX","TX","GND","3V3")
     private val esp32Names=listOf("3V3","EN","VP","VN","IO34","IO35","IO32","IO33","IO25","IO26","IO27","IO14","IO12","GND","IO13","D2","D3","CMD","5V",
@@ -201,7 +201,7 @@ object BoardRegistry {
     private val nano33Names=listOf("D1","D0","RESET","GND","D2","D3","D4","D5","D6","D7","D8","D9","D10","D11","D12","D13",
         "3V3","AREF","A0","A1","A2","A3","A4","A5","A6","A7","VUSB","RESET","GND","VIN")
 
-    private val unoPlaces=stack(listOf("IOREF","RESET","3V3","5V","GND","VIN","A0","A1","A2","A3","A4","A5"),-120f,-84f,14f)+
+    private val unoPlaces=stack(listOf("NC","IOREF","RESET","3V3","5V","GND","GND","VIN","A0","A1","A2","A3","A4","A5"),-120f,-98f,14f)+
         stack(listOf("SCL","SDA","AREF","GND","D13","D12","D11","D10","D9","D8","D7","D6","D5","D4","D3","D2","D1","D0"),120f,-119f,14f)
     private val nanoPlaces=stack(nanoNames.take(15),-78f,-98f,14f)+stack(nanoNames.drop(15).reversed(),78f,-98f,14f)
     private val picoPlaces=stack(picoNames.take(20),-78f,-133f,14f)+
@@ -214,9 +214,11 @@ object BoardRegistry {
     private val nano33Places=stack(nano33Names.take(15),-78f,-98f,14f)+stack(nano33Names.drop(15).reversed(),78f,-98f,14f)
 
     private fun megaPlaces():List<Pair<String,Pair<Float,Float>>> {
-        val left=stack(listOf("RESET","3V3","5V","GND","VIN")+(0..15).map { "A$it" },-150f,-150f,14f)
-        val mid=stack((0..21).map { "D$it" }+listOf("AREF","SDA","SCL"),20f,-168f,13.5f)
-        val far=stack((22..53).map { "D$it" },150f,-216f,13.5f)
+        val left=stack(listOf("NC","IOREF","RESET","3V3","5V","GND","GND","VIN")+(0..15).map { "A$it" },-150f,-168f,14f)
+        val mid=stack((0..21).map { "D$it" }+listOf("AREF","GND","SDA","SCL"),20f,-168f,13.5f)
+        val far=(22..53).map { n -> "D$n" to ((if(n%2==0) 134f else 150f) to (-110f+(n-22)/2*13.5f)) }+
+            listOf("5V" to (134f to -123.5f),"5V" to (150f to -123.5f),
+                "GND" to (134f to 106f),"GND" to (150f to 106f))
         return left+mid+far
     }
 
@@ -229,7 +231,7 @@ object BoardRegistry {
     private fun nodePin(name:String,i:Int,map:Map<String,Int>,logic:Double=3.3,led:String="D4"):BoardPin {
         val extra=buildSet {
             if(name=="A0") add(PinCapability.ANALOG_INPUT)
-            if(name in map && name!="D0") add(PinCapability.PWM)
+            if(name in map || name in setOf("RX","TX")) add(PinCapability.PWM)
             if(name in setOf("D1","D2")) add(PinCapability.I2C)
             if(name in setOf("D5","D6","D7","D8")) add(PinCapability.SPI)
             if(name in setOf("RX","TX")) add(PinCapability.UART)
@@ -244,7 +246,7 @@ object BoardRegistry {
             adc=if(name=="A0") 0 else null,warnings=warnings)
         return when {
             name=="A0" -> pin.copy(capabilities=setOf(PinCapability.ANALOG_INPUT),type=PinType.ANALOG_INPUT,
-                minVoltage=0.0,maxVoltage=3.2,notes="Board divider. Official D1 Mini docs: analog input max 3.2 V. NodeMCU revisions vary.")
+                minVoltage=0.0,maxVoltage=3.2,notes="0–3.2 V header input; bare ESP8266 ADC is 0–1 V. Selected board uses a 220k/100k divider.")
             name in setOf("S0","S1","S2","S3","SC","SK") ->
                 pin.copy(capabilities=setOf(PinCapability.RESERVED),type=PinType.RESERVED,minVoltage=null,maxVoltage=null,
                     notes="SDIO / flash-related header. Not a user GPIO in this model.")
@@ -293,7 +295,7 @@ object BoardRegistry {
             "Arduino UNO Rev3 (A000066). 5 V AVR logic. VIN/regulator path is educational, not a SPX1117 transistor model. ICSP is not a separate connector; SPI is D11–D13/D10.",
             listOf("Arduino","ATmega328P","I2C","SPI","PWM","Uno","AVR"),
             BoardFamily.ARDUINO_AVR,"Rev3","A000066","AVR 8-bit",10,5.0,"D13",
-            BoardSupportLevel.FULL,
+            BoardSupportLevel.FUNCTIONAL,
             listOf(PowerDomain("USB",5.0,"input","USB-B virtual power"),
                 PowerDomain("VIN",9.0,"input","7–12 V typical; regulator not transistor-level"),
                 PowerDomain("5V",5.0,"output","Logic rail"),PowerDomain("3V3",3.3,"output","Onboard 3.3 V")),
@@ -301,13 +303,13 @@ object BoardRegistry {
                 "https://docs.arduino.cc/resources/pinouts/A000066-full-pinout.pdf"),
             listOf("SDA/SCL headers are the same nets as A4/A5."),
             buses,usbConnector="USB-B",boardWidth=248f,boardHeight=280f,pcbColor=0xFF08677E),
-        BoardDefinition(Kind.ARDUINO_NANO,"Arduino","Nano","ATmega328",5.0,
+        BoardDefinition(Kind.ARDUINO_NANO,"Arduino","Nano","ATmega328P",5.0,
             layout(numbered(nanoNames) { n,i -> arduinoPin(n,"nano",i) },nanoPlaces),setOf("5V"),
             "https://docs.arduino.cc/resources/pinouts/A000005-full-pinout.pdf",
-            "Arduino Nano (A000005), breadboard DIP. A6 and A7 are analog-input only. VIN regulation is outside the model.",
+            "Arduino Nano (A000005), breadboard DIP. A6 and A7 are analog-input only. VIN supplies an ideal regulator model.",
             listOf("Arduino","ATmega328","I2C","SPI","PWM","Nano"),
             BoardFamily.ARDUINO_AVR,"A000005",null,"AVR 8-bit",10,5.0,"D13",
-            BoardSupportLevel.FULL,
+            BoardSupportLevel.FUNCTIONAL,
             listOf(PowerDomain("USB",5.0,"input","Mini-USB / USB-C clones exist; this model uses USB Power"),
                 PowerDomain("VIN",9.0,"input","External raw input"),PowerDomain("5V",5.0,"output","Logic rail")),
             listOf(BoardReference("Arduino Nano pinout","Arduino",ReferenceType.PINOUT,null,
@@ -316,7 +318,7 @@ object BoardRegistry {
         BoardDefinition(Kind.ARDUINO_MEGA,"Arduino","Mega 2560","ATmega2560",5.0,
             layout(numbered(megaNames) { n,i -> arduinoPin(n,"mega",i) },megaPlaces()),setOf("5V"),
             "https://docs.arduino.cc/resources/pinouts/A000067-full-pinout.pdf",
-            "Arduino Mega 2560 (A000067). Serial1/2/3 pins are labeled; the firmware subset currently drives one Serial pair (D1/D0). SPI is D50–D53.",
+            "Arduino Mega 2560 (A000067). Serial1/2/3 pins are labeled; the firmware subset has four independent Serial ports. SPI is D50–D53.",
             listOf("Arduino","ATmega2560","I2C","SPI","PWM","Mega","UART"),
             BoardFamily.ARDUINO_AVR,"A000067",null,"AVR 8-bit",10,5.0,"D13",
             BoardSupportLevel.FUNCTIONAL,
@@ -324,7 +326,7 @@ object BoardRegistry {
                 PowerDomain("VIN",9.0,"input","External")),
             listOf(BoardReference("Mega 2560 pinout","Arduino",ReferenceType.PINOUT,null,
                 "https://docs.arduino.cc/resources/pinouts/A000067-full-pinout.pdf")),
-            listOf("Runtime Serial uses D1/D0. D14–D19 are hardware UART pins (Basic / metadata)."),
+            listOf("Serial, Serial1, Serial2 and Serial3 use distinct connected UART pin pairs."),
             buses,usbConnector="USB-B",boardWidth=340f,boardHeight=460f),
         BoardDefinition(Kind.RASPBERRY_PICO,"Raspberry Pi","Pico","RP2040",3.3,
             layout(numbered(picoNames,::picoPin)+listOf(make("GP25",3.3,41,setOf(PinCapability.DIGITAL_INPUT,PinCapability.DIGITAL_OUTPUT,PinCapability.PWM),
@@ -333,7 +335,7 @@ object BoardRegistry {
             "Raspberry Pi Pico. GP26–28 are ADC0–2. GP25 is the onboard LED (not on the 40-pin header). VSYS/VBUS regulation is simplified.",
             listOf("Pico","RP2040","MicroPython","I2C","SPI","PWM"),
             BoardFamily.RP2040,"",null,"ARM Cortex-M0+",12,3.3,"GP25",
-            BoardSupportLevel.FULL,
+            BoardSupportLevel.FUNCTIONAL,
             listOf(PowerDomain("VBUS",5.0,"input","USB 5 V"),PowerDomain("VSYS",5.0,"input","Board supply"),
                 PowerDomain("3V3_OUT",3.3,"output","Regulated GPIO rail")),
             listOf(BoardReference("Pico datasheet","Raspberry Pi Ltd",ReferenceType.BOARD_DATASHEET,null,
@@ -358,7 +360,7 @@ object BoardRegistry {
         BoardDefinition(Kind.NODEMCU_ESP8266,"NodeMCU","DEVKIT V1.0","ESP8266",3.3,
             layout(numbered(nodemcuNames) { n,i -> nodePin(n,i,nodeMcuGpio) },nodemcuPlaces),setOf("3V3"),
             "https://github.com/nodemcu/nodemcu-devkit-v1.0/blob/master/README.md",
-            "NodeMCU DEVKIT V1.0. D-labels and GPIO numbers are both valid. D0 is GPIO16 and has no PWM. A0 range varies by revision.",
+            "NodeMCU DEVKIT V1.0. D-labels and GPIO numbers are both valid. D0 is GPIO16: software PWM is supported, GPIO interrupts are unavailable. This V1.0 A0 divider range is 0–3.2 V.",
             listOf("NodeMCU","ESP8266","WiFi","D0","I2C","ESP"),
             BoardFamily.ESP8266,"DEVKIT V1.0","ESP-12E","Xtensa L106",10,3.3,"D4",
             BoardSupportLevel.FUNCTIONAL,
@@ -367,8 +369,8 @@ object BoardRegistry {
             listOf(BoardReference("NodeMCU DEVKIT V1.0","NodeMCU",ReferenceType.USER_GUIDE,null,
                 "https://github.com/nodemcu/nodemcu-devkit-v1.0/blob/master/README.md")),
             listOf("D3/D4/D8 are boot-sensitive."),
-            wireless(true,false).copy(adc=FeatureSupport(true,FeatureSimLevel.FULL,"10-bit; board divider varies"),
-                pwm=FeatureSupport(true,FeatureSimLevel.BASIC,"All GPIO except D0")),
+            wireless(true,false).copy(adc=FeatureSupport(true,FeatureSimLevel.FULL,"10-bit; V1.0 divider 0–3.2 V"),
+                pwm=FeatureSupport(true,FeatureSimLevel.BASIC,"Software PWM on exposed GPIO0–16")),
             usbConnector="Micro-USB",boardWidth=196f,boardHeight=230f,pcbColor=0xFF1D395B),
         BoardDefinition(Kind.ESP32_DEVKIT,"Espressif","ESP32-DevKitC V4","ESP32-WROOM-32E",3.3,
             layout(numbered(esp32Names) { n,i -> espPin(n,i) },esp32Places),setOf("3V3"),
@@ -440,5 +442,5 @@ object BoardRegistry {
                 "https://datasheets.raspberrypi.com/pico/pico-2-datasheet.pdf")),
             listOf("RP2350-specific peripherals beyond the Pico-compatible subset are not simulated."),
             buses,usbConnector="Micro-USB",boardWidth=172f,boardHeight=300f,pcbColor=0xFF0F5C3A)
-    ).associateBy { it.kind }
+    ).map(BoardHardwareProfiles::enrich).associateBy { it.kind }
 }

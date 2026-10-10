@@ -24,12 +24,17 @@ fun EnvironmentPanel(state:SimulatorState,model:SimulatorViewModel,modifier:Modi
     val showLight=kinds.any { it in setOf(Kind.LDR,Kind.PHOTOTRANSISTOR,Kind.PHOTODIODE) }
     val showDistance=kinds.contains(Kind.ULTRASONIC)
     val showMotion=kinds.contains(Kind.PIR_SENSOR)
-    if(!showTemp && !showLight && !showDistance && !showMotion) return
+    val showField=kinds.any { it in setOf(Kind.HALL_SENSOR,Kind.REED_SWITCH) }
+    if(!showTemp && !showLight && !showDistance && !showMotion && !showField) return
     val env=state.circuit.environment
     Surface(modifier,color=Color(0xFF102033).copy(alpha=.94f),shape=RoundedCornerShape(12.dp),
         border=BorderStroke(1.dp,Color(0xFF294159))) {
         Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
             Text("Environment",color=TextIce,fontSize=12.sp)
+            if(showField) {
+                Text("Magnetic field ${"%.1f".format(env.magneticFieldMilliTesla)} mT",color=Mint,fontSize=11.sp)
+                Slider(((env.magneticFieldMilliTesla+100)/200).toFloat(),{model.setEnvironment(env.copy(magneticFieldMilliTesla=it*200.0-100.0))})
+            }
             if(showTemp) {
                 Text("Temperature ${"%.1f".format(env.temperatureC)} °C",color=Mint,fontSize=11.sp)
                 Slider((env.temperatureC.toFloat()+40f)/190f,{

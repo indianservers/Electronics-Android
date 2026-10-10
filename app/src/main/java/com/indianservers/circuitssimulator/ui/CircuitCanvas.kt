@@ -4,7 +4,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -13,12 +13,15 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.*
+import android.animation.ValueAnimator
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -111,6 +114,12 @@ internal fun routedWirePoints(wire:Wire,parts:Map<String,PlacedComponent>,angles
     }
 }
 
+enum class CanvasInteractionMode(val title:String,val hint:String) {
+    CONNECT("Connect","One finger: tap two pins or drag between pins"),
+    MOVE_PARTS("Move parts","One finger: drag a component"),
+    VIEW("View","Inspect the circuit without editing")
+}
+
 private data class Viewport(val scale: Float, val origin: Offset) {
     fun world(pixel: Offset) = (pixel - origin) / scale
     fun pixel(world: Offset) = world * scale + origin
@@ -151,14 +160,27 @@ private fun animatedAngle(part:PlacedComponent):Float {
     return animateFloatAsState(target,tween(150),label="Rotate ${part.reference}").value
 }
 
+/** Optional diagnostic hooks; absent in normal app use. */
+data class CanvasPerformanceProbe(val composed:()->Unit,val drawn:(Long)->Unit)
+
 @Composable
-fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Modifier = Modifier) {
+fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Modifier = Modifier,
+    performanceProbe:CanvasPerformanceProbe? = null, interactionMode:CanvasInteractionMode = CanvasInteractionMode.CONNECT) {
+    SideEffect { performanceProbe?.composed?.invoke() }
     val haptics=LocalHapticFeedback.current
-    val transition=rememberInfiniteTransition(label="Current flow")
-    val phaseState=transition.animateFloat(0f,1f,infiniteRepeatable(tween(2600,easing=LinearEasing)),label="Direction")
+    val touchDensity=LocalDensity.current
+    val gridCache=remember { CircuitGridCache() }
+    val componentLabelPaint=remember { android.graphics.Paint(3).apply { textAlign=android.graphics.Paint.Align.CENTER } }
+    val targets=remember(state) { state.circuit.components.associate { it.id to ComponentVisualAdapter.read(it,state) } }
+    val latestTargets by rememberUpdatedState(targets)
+    val latestState by rememberUpdatedState(state)
+    val motion=remember { ComponentMotion() }
+    var poses by remember { mutableStateOf<Map<String,ComponentVisualState>>(emptyMap()) }
+    var flowPhase by remember { mutableFloatStateOf(0f) }
     val animatedAngles=state.circuit.components.associate { part ->
         key(part.id) { part.id to animatedAngle(part) }
     }
+    val latestAngles by rememberUpdatedState(animatedAngles)
     val waveformFrames=if(state.measurementsVisible) state.transient?.frames?.takeLast(32).orEmpty()
         else emptyList()
     var canvasSize by remember { mutableStateOf(Size.Zero) }
@@ -169,13 +191,46 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
     var wireHover by remember { mutableStateOf<TerminalRef?>(null) }
     var pendingTerminal by remember(state.circuit) { mutableStateOf<TerminalRef?>(null) }
     var placementPreview by remember { mutableStateOf<Offset?>(null) }
-    var panning by remember { mutableStateOf(false) }
+    var gestureOrigin by remember { mutableStateOf(Offset.Zero) }
     var pinching by remember { mutableStateOf(false) }
     var pinchOccurred by remember { mutableStateOf(false) }
+    LaunchedEffect(interactionMode) {
+        pendingTerminal=null;wireStart=null;wireEnd=null;wireHover=null;dragging=null
+        dragDelta=Offset.Zero;placementPreview=null
+    }
     val viewport = remember(canvasSize, state.zoom, state.panX, state.panY) {
         val scale = min(canvasSize.width / 1000f, canvasSize.height / 900f) * state.zoom
         Viewport(scale.coerceAtLeast(.001f),Offset((canvasSize.width - 1000f * scale)/2 + state.panX,
             (canvasSize.height - 900f * scale).coerceAtLeast(0f)*.5f + state.panY))
+    }
+    val latestViewport by rememberUpdatedState(viewport)
+    LaunchedEffect(Unit) {
+        var previous=0L
+        while(true) {
+            val current=latestState
+            val view=latestViewport
+            val visible=current.circuit.components.filter { componentVisible(it,view,canvasSize) }
+            val running=current.running || current.firmware.running
+            val reduced=!ValueAnimator.areAnimatorsEnabled()
+            val active=running && !reduced && (
+                visible.any { part ->
+                    val target=latestTargets[part.id] ?: ComponentVisualState()
+                    abs(target.motor.rpm)>.2f || motion.moving(part.id) ||
+                        (part.kind==Kind.SERVO_MOTOR && target.servoDriven && motion.servoMoving(part.id,target.servoDegrees)) ||
+                        (part.kind in setOf(Kind.BUZZER,Kind.SPEAKER) && target.brightness>.01f) ||
+                        (part.kind==Kind.RGB_LED && maxOf(target.red,target.green,target.blue)>.001f)
+                } || visible.any { abs(current.result.readings[it.id]?.current ?: 0.0)>1e-5 })
+            if(!active) { delay(100);previous=0L }
+            val now=if(active) withInfiniteAnimationFrameNanos { it } else System.nanoTime()
+            val dt=if(previous==0L) 1f/60f else ((now-previous)/1e9f).coerceIn(0f,.05f)
+            previous=now
+            motion.retain(current.circuit.components.map { it.id }.toSet())
+            poses=visible.associate { part ->
+                val target=latestTargets[part.id] ?: ComponentVisualState()
+                part.id to motion.advance(part.id,target,dt,running,reduced).copy(phase=flowPhase)
+            }
+            if(active) flowPhase=(flowPhase+dt/2.6f)%1f
+        }
     }
     fun hitComponent(point: Offset): PlacedComponent? {
         val world = viewport.world(point)
@@ -191,15 +246,16 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
         }
     }
     fun hitTerminal(point: Offset): TerminalRef? {
-        val world = viewport.world(point)
         return state.circuit.components.flatMap { p ->
             (0 until p.terminalCount).mapNotNull { pin ->
                 if(p.kind.isBoard && BoardRegistry.boards.getValue(p.kind).pins.getOrNull(pin)?.connectable==false)
                     return@mapNotNull null
-                val t=terminalPosition(p,pin,animatedAngles[p.id] ?: p.rotation.toFloat())
-                val distance=hypot((t.x-world.x).toDouble(),(t.y-world.y).toDouble())
-                val reach=(if(p.kind.isBoard) 36f else if(p.id==state.selectedId) 32f else 26f)*
-                    p.sizeScale.coerceAtMost(1.15f)
+                val t=terminalPosition(p,pin,latestAngles[p.id] ?: p.rotation.toFloat())
+                val screen=viewport.pixel(t)
+                val distance=(screen-point).getDistance().toDouble()
+                // Keep touch targets usable even when component artwork is zoomed out.
+                val reach=maxOf(with(touchDensity) { (if(p.kind.isBoard) 14.dp else 24.dp).toPx() },
+                    16f*p.sizeScale*viewport.scale)
                 Triple(TerminalRef(p.id,pin),distance,reach.toDouble())
             }
         }.filter { it.second < it.third }.minByOrNull { it.second }?.first
@@ -208,7 +264,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
         val world=viewport.world(point)
         val parts=state.circuit.components.associateBy { it.id }
         return state.circuit.wires.firstOrNull { wire ->
-            routedWirePoints(wire,parts,animatedAngles).zipWithNext().any { (first,last) ->
+            routedWirePoints(wire,parts,latestAngles).zipWithNext().any { (first,last) ->
                 val delta=last-first
                 val fraction=if(delta.getDistanceSquared()<1f) 0f else
                     (((world-first).x*delta.x+(world-first).y*delta.y)/delta.getDistanceSquared()).coerceIn(0f,1f)
@@ -217,7 +273,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
         }
     }
     Canvas(modifier.onSizeChanged { model.setCanvasSize(Size(it.width.toFloat(),it.height.toFloat())) }.semantics {
-        contentDescription = "Circuit workspace. Tap two component pins to connect them, or drag from one pin to another."
+        contentDescription = "Circuit workspace. ${interactionMode.hint}. Use two fingers to pan or zoom."
         customActions = state.circuit.components.filter { it.kind != Kind.JUNCTION }.map { part ->
             CustomAccessibilityAction("Select ${part.reference}, ${part.kind.title}") {
                 model.select(part.id); true
@@ -225,7 +281,8 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
         }
     }.pointerInput(Unit) {
         awaitEachGesture {
-            awaitFirstDown(requireUnconsumed=false)
+            gestureOrigin=awaitFirstDown(requireUnconsumed=false).position
+            pinchOccurred=false
             var active = true
             while (active) {
                 val event=awaitPointerEvent()
@@ -233,28 +290,38 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                 if (contacts.size >= 2) {
                     pinching=true
                     pinchOccurred=true
+                    pendingTerminal=null;wireStart=null;wireEnd=null;wireHover=null
+                    dragging=null;dragDelta=Offset.Zero;placementPreview=null
                     val a=contacts[0]; val b=contacts[1]
                     val before=(a.previousPosition-b.previousPosition).getDistance()
                     val after=(a.position-b.position).getDistance()
-                    if (before>1f && after>1f) model.transformGesture((after/before).coerceIn(.85f,1.15f),
+                    if (a.previousPressed && b.previousPressed && before>1f && after>1f) model.transformGesture((after/before).coerceIn(.85f,1.15f),
                         (a.previousPosition+b.previousPosition)/2f,(a.position+b.position)/2f,canvasSize)
+                    event.changes.forEach { it.consume() }
                 }
+                if(pinchOccurred) event.changes.forEach { it.consume() }
                 active=contacts.isNotEmpty()
                 if (!active) pinching=false
             }
         }
-    }.pointerInput(state.circuit, state.placement, state.selectedId, viewport) {
-        detectTapGestures(onDoubleTap = { model.resetView() },onLongPress={ point ->
+    }.pointerInput(state.circuit, state.placement, state.selectedId, viewport, interactionMode) {
+        detectTapGestures(onLongPress={ point ->
+            if(interactionMode==CanvasInteractionMode.VIEW || pinchOccurred || hitTerminal(point)!=null) return@detectTapGestures
             hitComponent(point)?.let { model.showContext(it.id);haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
         },onTap = { point ->
+            if(pinchOccurred) return@detectTapGestures
+            if(interactionMode==CanvasInteractionMode.VIEW) {
+                hitTerminal(point)?.let(model::describeBoardPin)
+                return@detectTapGestures
+            }
             if (state.placement != null) {
                 val w=viewport.world(point)
                 model.place((w.x/10f).toInt()*10f,(w.y/10f).toInt()*10f)
             } else {
-                val pin=hitTerminal(point)
+                val pin=if(interactionMode==CanvasInteractionMode.CONNECT) hitTerminal(point) else null
                 val start=pendingTerminal
                 when {
-                    pin!=null && start==null -> { pendingTerminal=pin;haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+                    pin!=null && start==null -> { pendingTerminal=pin;model.describeBoardPin(pin);haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                     pin!=null && pin==start -> pendingTerminal=null
                     pin!=null && start!=null -> {
                         if(pin.componentId!=start.componentId) model.connect(start,pin)
@@ -285,18 +352,19 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                 }
             }
         })
-    }.pointerInput(state.circuit, state.placement, viewport) {
+    }.pointerInput(state.circuit, state.placement, viewport, interactionMode) {
         detectDragGestures(onDragStart = { point ->
-            pinchOccurred=false
-            if(state.placement!=null) placementPreview=point
+            if(pinchOccurred || interactionMode==CanvasInteractionMode.VIEW) return@detectDragGestures
+            if(state.placement!=null) placementPreview=gestureOrigin
             else {
-                val terminal=hitTerminal(point)
+                val terminal=if(interactionMode==CanvasInteractionMode.CONNECT) hitTerminal(gestureOrigin) else null
                 if (terminal != null) { pendingTerminal=null;wireStart=terminal; wireEnd=point }
-                else { dragging=hitComponent(point)?.id; panning=dragging==null }
+                else if(interactionMode==CanvasInteractionMode.MOVE_PARTS) dragging=hitComponent(gestureOrigin)?.id
             }
             dragDelta=Offset.Zero
         },onDrag = { change, amount ->
             change.consume()
+            if(pinching || pinchOccurred) return@detectDragGestures
             dragDelta += amount
             if (wireStart != null) {
                 wireEnd=change.position
@@ -307,7 +375,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
             if (placementPreview != null) placementPreview=change.position
         },onDragEnd = {
             val start=wireStart
-            if (pinching || pinchOccurred) { wireStart=null; wireEnd=null; wireHover=null; dragging=null; dragDelta=Offset.Zero; panning=false; pinchOccurred=false; placementPreview=null; return@detectDragGestures }
+            if (pinching || pinchOccurred) { wireStart=null; wireEnd=null; wireHover=null; dragging=null; dragDelta=Offset.Zero; placementPreview=null; return@detectDragGestures }
             if(placementPreview!=null && state.placement!=null) {
                 val world=viewport.world(placementPreview!!)
                 model.place((world.x/10f).toInt()*10f,(world.y/10f).toInt()*10f)
@@ -325,22 +393,15 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                     val dx=dragDelta.x/viewport.scale; val dy=dragDelta.y/viewport.scale
                     model.move(p.id,((p.x+dx)/10f).toInt()*10f,((p.y+dy)/10f).toInt()*10f)
                 }
-            } else if (panning) model.pan(dragDelta.x,dragDelta.y)
-            wireStart=null; wireEnd=null; wireHover=null; dragging=null; dragDelta=Offset.Zero; panning=false; placementPreview=null
-        },onDragCancel = { wireStart=null; wireEnd=null; wireHover=null; dragging=null; dragDelta=Offset.Zero; panning=false; placementPreview=null })
-    }) {
-        canvasSize=size
-        val renderViewport=if(panning) viewport.copy(origin=viewport.origin+dragDelta) else viewport
-        drawRect(Color(0xFF071522))
-        val gridStep=32f*renderViewport.scale
-        if (gridStep > 8f) {
-            var x=renderViewport.origin.x % gridStep
-            while(x<size.width) {
-                var y=renderViewport.origin.y % gridStep
-                while(y<size.height) { drawCircle(Color(0xFF234867).copy(alpha=.62f),1.15f,Offset(x,y)); y+=gridStep }
-                x+=gridStep
             }
-        }
+            wireStart=null; wireEnd=null; wireHover=null; dragging=null; dragDelta=Offset.Zero; placementPreview=null
+        },onDragCancel = { wireStart=null; wireEnd=null; wireHover=null; dragging=null; dragDelta=Offset.Zero; placementPreview=null })
+    }) {
+        val drawStarted=if(performanceProbe!=null) System.nanoTime() else 0L
+        canvasSize=size
+        val renderViewport=viewport
+        drawRect(Color(0xFF071522))
+        gridCache.draw(drawContext.canvas.nativeCanvas,renderViewport,size)
         withTransform({ translate(renderViewport.origin.x,renderViewport.origin.y); scale(renderViewport.scale,renderViewport.scale,Offset.Zero) }) {
             val lookup=state.circuit.components.associate { original ->
                 original.id to if(original.id==dragging) original.copy(
@@ -389,7 +450,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                         val delta=last-first
                         val length=delta.getDistance().coerceAtLeast(1f)
                         val dir=delta/length
-                        val progress=(phaseState.value+wireIndex*.19f)%1f
+                        val progress=(flowPhase+wireIndex*.19f)%1f
                         val mid=first+delta*(.2f+.6f*progress)
                         val tip=mid+dir*11f
                         val base=mid-dir*8f
@@ -443,6 +504,12 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
             state.circuit.components.forEach { original ->
                 val p=lookup.getValue(original.id)
                 val reading=state.result.readings[p.id]
+                if(!componentVisible(p,renderViewport,size)) return@forEach
+                val target=targets[p.id] ?: ComponentVisualState()
+                val pose=poses[p.id]
+                // Electrical changes take effect immediately, independently of the presentation frame clock.
+                val visual=if(pose==null) target else target.copy(rotorDegrees=pose.rotorDegrees,
+                    servoDegrees=pose.servoDegrees,phase=pose.phase,reducedMotion=pose.reducedMotion)
                 val intensity=when(p.kind) {
                     Kind.LED,Kind.RED_LED,Kind.GREEN_LED,Kind.BLUE_LED ->
                         ((kotlin.math.max(0.0,reading?.current ?: 0.0)/.02).coerceIn(0.0,1.0)).toFloat()
@@ -464,14 +531,14 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                     }
                 } else 0
                 drawComponent(p,p.id==state.selectedId || p.id in state.highlightedParts,
-                    if(state.running) intensity else 0f,
+                    if(p.kind in setOf(Kind.LED,Kind.RED_LED,Kind.GREEN_LED,Kind.BLUE_LED,Kind.LAMP)) visual.brightness else intensity,
                     animatedAngles[p.id] ?: p.rotation.toFloat(),connectedPins[p.id].orEmpty().map { it.index }.toSet(),
-                    activeMask)
-                if (p.kind != Kind.JUNCTION) drawContext.canvas.nativeCanvas.apply {
-                    val paint=android.graphics.Paint(3).apply { color=android.graphics.Color.rgb(221,234,255);textSize=27f;textAlign=android.graphics.Paint.Align.CENTER }
+                    activeMask,visual,details=renderViewport.scale*p.sizeScale>=.6f)
+                if (p.kind != Kind.JUNCTION && (p.id==state.selectedId || renderViewport.scale*p.sizeScale>=.4f)) drawContext.canvas.nativeCanvas.apply {
+                    val paint=componentLabelPaint.apply { color=android.graphics.Color.rgb(221,234,255);textSize=27f*p.sizeScale.coerceAtLeast(.6f) }
                     val top=if(p.kind.isBoard) BoardRegistry.boards.getValue(p.kind).boardHeight/2f+20f
                         else if(p.kind in IcParts.pinNames && p.terminalCount>=16) 132f else 88f
-                    drawText(p.reference,p.x,p.y-top,paint)
+                    drawText(p.reference,p.x,p.y-top*p.sizeScale,paint)
                     val secondary=when(p.kind) {
                         Kind.BATTERY,Kind.SOURCE -> EngineeringUnits.format(p.value("voltage"),"V")
                         Kind.FUNCTION_GENERATOR -> EngineeringUnits.format(p.value("frequency"),"Hz")
@@ -485,7 +552,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                         else -> p.kind.title
                     }
                     paint.color=android.graphics.Color.rgb(151,174,201);paint.textSize=23f
-                    if(p.kind!=Kind.LED) drawText(secondary,p.x,p.y+96f,paint)
+                    if(p.id==state.selectedId || state.measurementsVisible) drawText(secondary,p.x,p.y+96f*p.sizeScale,paint)
                     if(state.measurementsVisible && reading!=null && state.result.error==null &&
                         p.kind!=Kind.GROUND) {
                         val label=when {
@@ -559,5 +626,39 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                 }
             }
         }
+        performanceProbe?.drawn?.invoke(System.nanoTime()-drawStarted)
+    }
+}
+
+private fun componentVisible(p:PlacedComponent,view:Viewport,size:Size):Boolean {
+    if(size.width<=0f || size.height<=0f) return false
+    val board=BoardRegistry.boards[p.kind]
+    val radius=(if(board!=null) hypot(board.boardWidth,board.boardHeight)/2f+24f else 155f)*p.sizeScale*view.scale
+    val screen=Offset(p.x,p.y)*view.scale+view.origin
+    return screen.x+radius>=0 && screen.y+radius>=0 && screen.x-radius<=size.width && screen.y-radius<=size.height
+}
+
+/** Grid geometry changes only when the viewport changes, not on every rotor frame. */
+private class CircuitGridCache {
+    private var key:Triple<Offset,Float,Size>?=null
+    private var dots=FloatArray(0)
+    private val paint=android.graphics.Paint(3).apply {
+        color=0x9E234867.toInt();strokeWidth=2.3f;strokeCap=android.graphics.Paint.Cap.ROUND
+    }
+    fun draw(canvas:android.graphics.Canvas,view:Viewport,size:Size) {
+        val next=Triple(view.origin,view.scale,size)
+        if(next!=key) {
+            key=next
+            val step=32f*view.scale
+            dots=if(step<=8f) FloatArray(0) else buildList<Float> {
+                var x=view.origin.x%step
+                while(x<size.width) {
+                    var y=view.origin.y%step
+                    while(y<size.height) { add(x);add(y);y+=step }
+                    x+=step
+                }
+            }.toFloatArray()
+        }
+        canvas.drawPoints(dots,paint)
     }
 }

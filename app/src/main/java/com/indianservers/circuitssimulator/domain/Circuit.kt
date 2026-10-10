@@ -397,11 +397,13 @@ data class PlacedComponent(
 data class TerminalRef(val componentId: String, val index: Int)
 data class Wire(val id: String = UUID.randomUUID().toString(), val start: TerminalRef, val end: TerminalRef,
                 val label:String?=null)
-data class SimulationSettings(val analysis: String = "DC", val tolerance: Double = 1e-8, val maxIterations: Int = 80)
+data class SimulationSettings(val analysis: String = "DC", val tolerance: Double = 1e-8, val maxIterations: Int = 80,
+    val advancedEmbedded:Boolean=false)
 data class Circuit(val name: String, val components: List<PlacedComponent>, val wires: List<Wire>,
                    val settings: SimulationSettings = SimulationSettings(),
                    val firmware:List<FirmwareAttachment> = emptyList(),
-                   val environment:EnvironmentState=EnvironmentState())
+                   val environment:EnvironmentState=EnvironmentState(),
+                   val peripheralMemory:Map<String,Map<Int,Int>> = emptyMap())
 
 /** Physical wires plus logical joins between separate wire segments bearing the same net label. */
 fun Circuit.electricalConnections():List<Pair<TerminalRef,TerminalRef>> =

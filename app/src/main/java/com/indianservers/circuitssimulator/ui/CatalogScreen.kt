@@ -26,14 +26,14 @@ import com.indianservers.circuitssimulator.ui.canvas.*
 fun ComponentThumbnail(kind: Kind, modifier: Modifier = Modifier, component: PlacedComponent? = null) {
     Canvas(modifier) {
         val s=if(kind.isBoard) {
-            val pins=BoardRegistry.boards.getValue(kind).pins.size
-            kotlin.math.min(size.width/250f,size.height/(kotlin.math.max(220f,pins/2f*13f+45f)))
+            val board=BoardRegistry.boards.getValue(kind)
+            kotlin.math.min(size.width/(board.boardWidth+28f),size.height/(board.boardHeight+28f))
         } else if(kind in IcParts.pinNames && IcParts.pinNames.getValue(kind).size>=16)
             kotlin.math.min(size.width/205f,size.height/240f)
         else size.minDimension/175f
+        val part=(component ?: PlacedComponent(kind=kind,reference="",x=0f,y=0f)).copy(x=size.width/2,y=size.height/2)
         scale(s,s,pivot=androidx.compose.ui.geometry.Offset(size.width/2,size.height/2)) {
-            drawComponent((component ?: PlacedComponent(kind=kind,reference="",x=0f,y=0f)).copy(x=size.width/2,y=size.height/2),false,
-                if(kind==Kind.LED || kind==Kind.LAMP) .45f else 0f)
+            drawComponent(part,false,visual=ComponentVisualAdapter.preview(part),details=size.minDimension>=80.dp.toPx())
         }
     }
 }

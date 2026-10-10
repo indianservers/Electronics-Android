@@ -15,7 +15,8 @@ enum class FeatureSimLevel { FULL, BASIC, METADATA, UNSUPPORTED }
 
 data class BoardReference(
     val title:String, val publisher:String, val documentType:ReferenceType,
-    val revision:String?=null, val sourceUrl:String?=null, val notes:String?=null
+    val revision:String?=null, val sourceUrl:String?=null, val notes:String?=null,
+    val applicableRevision:String?=null,val lastVerified:String?=null
 )
 
 data class PowerDomain(val id:String, val voltage:Double, val role:String, val notes:String="")
@@ -44,7 +45,10 @@ data class BoardPin(
     val connectable:Boolean=true,
     val nx:Float?=null,
     val ny:Float?=null,
-    val warnings:List<String> = emptyList()
+    val warnings:List<String> = emptyList(),
+    val physicalLabel:String=name,val functions:Set<String> = emptySet(),
+    val maxCurrentMa:Double?=null,val pwmResource:String?=null,
+    val pullUpSupported:Boolean=true,val pullDownSupported:Boolean=false
 )
 
 data class BoardDefinition(
@@ -78,7 +82,8 @@ data class BoardDefinition(
     val usbConnector:String = "USB",
     val boardWidth:Float = 202f,
     val boardHeight:Float = 240f,
-    val pcbColor:Long = 0xFF08677E
+    val pcbColor:Long = 0xFF08677E,
+    val hardware:BoardHardwareProfile = BoardHardwareProfiles.forKind(kind)
 ) {
     fun pin(name:String):BoardPin?=pins.firstOrNull { it.name==name }
     fun index(name:String):Int=pins.indexOfFirst { it.name==name }
@@ -107,6 +112,9 @@ data class BoardDefinition(
         if(raw is Number) {
             val n=raw.toDouble().toInt()
             if(analog) {
+                if(family==BoardFamily.ESP8266 && n==0) return pin("A0")?.name
+                if(family!=BoardFamily.ARDUINO_AVR && family!=BoardFamily.ARDUINO_SAMD)
+                    return pins.firstOrNull { it.gpioNumber==n && PinCapability.ANALOG_INPUT in it.capabilities }?.name
                 pin("A$n")?.let { return it.name }
                 pins.firstOrNull { it.adcChannel==n }?.let { return it.name }
                 pins.firstOrNull { it.gpioNumber==n && PinCapability.ANALOG_INPUT in it.capabilities }?.let { return it.name }
@@ -121,7 +129,7 @@ data class BoardDefinition(
             return null
         }
         val text=raw.toString().trim()
-        if(text.equals("LED_BUILTIN",ignoreCase=true) && ledBuiltin!=null) return ledBuiltin
+        if(text.uppercase() in setOf("LED_BUILTIN","LED") && ledBuiltin!=null) return ledBuiltin
         val upper=text.uppercase()
         pins.firstOrNull { it.name.equals(text,ignoreCase=true) }?.let { return it.name }
         pins.firstOrNull { pin -> pin.aliases.any { it.equals(text,ignoreCase=true) } }?.let { return it.name }

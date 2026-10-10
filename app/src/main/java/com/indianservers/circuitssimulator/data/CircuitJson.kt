@@ -6,7 +6,7 @@ import org.json.JSONObject
 
 /** Stable, versioned document containing topology and presentation coordinates only. */
 object CircuitJson {
-    const val SCHEMA_VERSION = 4
+    const val SCHEMA_VERSION = 5
     const val MAX_DOCUMENT_CHARS = 2_000_000
     const val MAX_COMPONENTS = 512
     const val MAX_WIRES = 4096
@@ -18,6 +18,7 @@ object CircuitJson {
             put("analysis", circuit.settings.analysis)
             put("tolerance", circuit.settings.tolerance)
             put("maxIterations", circuit.settings.maxIterations)
+            put("advancedEmbedded",circuit.settings.advancedEmbedded)
         })
         put("components", JSONArray().apply { circuit.components.forEach { p -> put(JSONObject().apply {
             put("id", p.id); put("kind", p.kind.name); put("reference", p.reference)
@@ -36,11 +37,18 @@ object CircuitJson {
             put("motion", circuit.environment.motion)
             put("pressureHpa", circuit.environment.pressureHpa)
             put("soundDb", circuit.environment.soundDb)
+            put("magneticFieldMilliTesla",circuit.environment.magneticFieldMilliTesla)
         })
         put("firmware", JSONArray().apply { circuit.firmware.forEach { item -> put(JSONObject().apply {
             put("boardId", item.boardId);put("language", item.language.name)
             put("source", item.source);put("usbPower", item.usbPower)
+            item.profileId?.let { put("profileId",it) }
         }) } })
+        put("peripheralMemory",JSONObject().apply {
+            circuit.peripheralMemory.forEach { (id,bytes) -> put(id,JSONObject().apply {
+                bytes.forEach { (address,value) -> put(address.toString(),value) }
+            }) }
+        })
         put("wires", JSONArray().apply { circuit.wires.forEach { w -> put(JSONObject().apply {
             put("id", w.id); put("startComponent", w.start.componentId); put("startPin", w.start.index)
             put("endComponent", w.end.componentId); put("endPin", w.end.index)
@@ -128,7 +136,7 @@ object CircuitJson {
                 env.optDouble("distanceCm",40.0),
                 env.optBoolean("motion",false),
                 env.optDouble("pressureHpa",1013.0),
-                env.optDouble("soundDb",40.0))
+                env.optDouble("soundDb",40.0),env.optDouble("magneticFieldMilliTesla",0.0))
         } ?: EnvironmentState()
         val firmwareArray=o.optJSONArray("firmware")
         val firmware=(0 until (firmwareArray?.length() ?: 0)).map { i ->
@@ -136,10 +144,21 @@ object CircuitJson {
             require(item.getString("source").length<=20000) { "Firmware source is too large" }
             FirmwareAttachment(item.getString("boardId"),
                 FirmwareLanguage.valueOf(item.optString("language",FirmwareLanguage.ARDUINO_SUBSET.name)),
-                item.getString("source"),item.optBoolean("usbPower",false))
+                item.getString("source"),item.optBoolean("usbPower",false),item.optString("profileId").takeIf { it.isNotBlank() })
         }
+        val stored=o.optJSONObject("peripheralMemory")
+        val peripheralMemory=stored?.keys()?.asSequence()?.associateWith { id ->
+            require(byId[id]?.kind in setOf(Kind.I2C_EEPROM,Kind.SPI_MEMORY)) { "Invalid memory owner" }
+            val data=stored.getJSONObject(id)
+            require(data.length()<=65536) { "Too many stored bytes" }
+            data.keys().asSequence().associate { key ->
+                val address=key.toInt();val value=data.getInt(key)
+                require(address in 0 until (if(byId[id]?.kind==Kind.SPI_MEMORY)4194304 else 256) && value in 0..255)
+                address to value
+            }
+        }.orEmpty()
         return Circuit(name, components, wires,
-            SimulationSettings(settings?.optString("analysis") ?: "DC", tolerance,maxIterations),
-            firmware,environment)
+            SimulationSettings(settings?.optString("analysis") ?: "DC", tolerance,maxIterations,settings?.optBoolean("advancedEmbedded",false) ?: false),
+            firmware,environment,peripheralMemory)
     }
 }

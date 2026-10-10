@@ -46,7 +46,11 @@ data class FirmwareUiState(
     val compiled:Boolean=false,val running:Boolean=false,val error:FirmwareDiagnostic?=null,
     val timeMicros:Long=0,val currentLine:Int=0,val console:List<String> = emptyList(),
     val pins:Map<String,GpioReading> = emptyMap(),val variables:Map<String,String> = emptyMap(),
+    val boardPins:Map<String,Map<String,GpioReading>> = emptyMap(),
+    val boardRuntime:Map<String,String> = emptyMap(),
     val busLog:List<String> = emptyList(),val displays:Map<String,String> = emptyMap(),
+    val framebuffers:Map<String,List<Int>> = emptyMap(),
+    val peripheralInspectors:Map<String,Map<String,String>> = emptyMap(),
     val highlightedPin:String?=null,val serialPaused:Boolean=false,
     val analyzerOpen:Boolean=false
 )
@@ -80,7 +84,7 @@ data class SimulatorState(
     val highlightedParts:Set<String> = emptySet(),val highlightedPins:Set<TerminalRef> = emptySet(),
     val highlightedWires:Set<String> = emptySet(),val intelligenceExplanation:String?=null,
     val firmware:FirmwareUiState=FirmwareUiState(),
-    val logicAnalyzerOpen:Boolean=false
+    val logicAnalyzerOpen:Boolean=false,val benchAudioEnabled:Boolean=false
 )
 
 class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
@@ -96,6 +100,11 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
     private var preGuideProjectId:String?=null
     private var preGuideRecoveryAvailable:Boolean=false
     private val autosaveMutex=Mutex()
+    private val benchAudio=NativeBenchAudio()
+    fun toggleBenchAudio() {
+        _state.value=_state.value.copy(benchAudioEnabled=!_state.value.benchAudioEnabled)
+        if(!_state.value.benchAudioEnabled)benchAudio.close()
+    }
     private val _state = MutableStateFlow(SimulatorState())
     val state = _state.asStateFlow()
     private val undo = ArrayDeque<Circuit>()
@@ -158,8 +167,8 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         if (old == next) return
         val sameTopology=old.components.map { it.id to it.kind }==next.components.map { it.id to it.kind } &&
             old.wires==next.wires
-        if(sameTopology) runCatching { firmwareSession?.board?.updateCircuit(next) }
-            .onFailure { firmwareSession=null }
+        if(sameTopology) firmwareRuntime.sessions.values.forEach { runCatching { it.board.updateCircuit(next) }
+            .onFailure { firmwareSession=null } }
         else firmwareSession=null
         if(firmwareSession==null)
             _state.value=_state.value.copy(firmware=_state.value.firmware.copy(running=false,compiled=false))
@@ -427,7 +436,8 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         }
         val trimmed=name.trim().take(80)
         if(trimmed.isEmpty()) { postMessage("Enter a project name before saving.");return }
-        val circuit=_state.value.circuit.copy(name=trimmed)
+        val circuit=_state.value.circuit.copy(name=trimmed,peripheralMemory=firmwareRuntime.fabric.persistentMemory()+_state.value.circuit.peripheralMemory.filterKeys {
+            it !in firmwareRuntime.fabric.persistentMemory() && _state.value.circuit.components.any { p -> p.id==it } })
         val id=runCatching { projectStore.save(if(asNew) null else _state.value.projectId,circuit) }
             .getOrElse { postMessage("Project could not be saved: ${it.message ?: "Storage error"}");return }
         _state.value=_state.value.copy(circuit=circuit,projectId=id,projects=projectStore.list(),message="Project saved.")
@@ -490,6 +500,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
                 liveCheckpoint=solved.second?.checkpoint
                 liveDigitalSession=solved.third
                 liveCircuit=circuit
+                firmwareRuntime.fabric.observe(circuit,solved.first,(liveCheckpoint?.timeSeconds?.times(1_000_000))?.toLong() ?: 0)
                 _state.value = _state.value.copy(result = solved.first,
                     transient = solved.second,elapsedSeconds=liveCheckpoint?.timeSeconds ?: 0.0)
                 val snapshot=_state.value
@@ -535,6 +546,9 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
                         elapsedSeconds=slice.checkpoint?.timeSeconds ?: _state.value.elapsedSeconds,
                         result=if(slice.error==null) slice.frames.lastOrNull()?.asDcResult() ?: _state.value.result
                             else DcResult(error=slice.error))
+                    if(_state.value.benchAudioEnabled && foregroundActive)runCatching {
+                        benchAudio.play(com.indianservers.circuitssimulator.simulation.BenchAudio.pcm(circuit,next.frames))
+                    }
                 }
             } finally { advanceInFlight=false }
         }
@@ -777,18 +791,20 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
             buttonPulses.remove(id)
         }
     }
-    fun showFirmware(open:Boolean) {
-        val board=_state.value.circuit.components.firstOrNull { it.kind.isBoard }
+    fun showFirmware(open:Boolean,boardId:String?=null) {
+        val board=_state.value.circuit.components.firstOrNull { it.kind.isBoard && it.id==(boardId ?: _state.value.firmware.boardId) }
+            ?: _state.value.circuit.components.firstOrNull { it.kind.isBoard }
         if(open && board==null) { postMessage("Place a supported board on the circuit first.");return }
         if(open && board!=null && _state.value.firmware.boardId!=board.id) {
-            firmwareSession=null
+            firmwareSession=firmwareRuntime.sessions[board.id]
             val attached=_state.value.circuit.firmware.firstOrNull { it.boardId==board.id }
             val language=attached?.language ?: BoardSupport.defaultLanguage(board.kind)
             val key="firmware_${board.kind.name}_${_state.value.circuit.name}"
             val source=attached?.source ?: preferences.getString(key,null) ?: FirmwareExamples.starter(board.kind,
                 _state.value.circuit.name,language)
             _state.value=_state.value.copy(firmware=FirmwareUiState(open=true,source=source,boardId=board.id,
-                language=language))
+                language=language,compiled=firmwareSession!=null,pins=firmwareSession?.board?.latestPins.orEmpty(),
+                boardPins=_state.value.firmware.boardPins))
         } else _state.value=_state.value.copy(firmware=_state.value.firmware.copy(open=open))
     }
     fun setFirmwareLanguage(language:FirmwareLanguage) {
@@ -818,7 +834,8 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         val boardId=current.firmware.boardId ?: return
         val board=current.circuit.components.firstOrNull { it.id==boardId } ?: return
         preferences.edit().putString("firmware_${board.kind.name}_${current.circuit.name}",source).apply()
-        val attachment=FirmwareAttachment(boardId,current.firmware.language,source,board.value("usbPower")>=.5)
+        val attachment=FirmwareAttachment(boardId,current.firmware.language,source,board.value("usbPower")>=.5,
+            BoardRegistry.boards.getValue(board.kind).hardware.profileId)
         val firmware=current.circuit.firmware.filterNot { it.boardId==boardId }+attachment
         _state.value=current.copy(circuit=current.circuit.copy(firmware=firmware))
     }
@@ -829,26 +846,51 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
             definition.pins.mapIndexedNotNull { i,pin ->
                 if(capability in pin.capabilities) TerminalRef(board.id,i) else null }.toSet())
     }
-    fun highlightFirmwarePin(pin:String?) {
+    fun highlightFirmwarePin(pin:String?,boardId:String?=null) {
         _state.value=_state.value.copy(firmware=_state.value.firmware.copy(highlightedPin=pin),
             highlightedPins=pin?.let { name ->
-                val board=_state.value.circuit.components.firstOrNull { it.id==_state.value.firmware.boardId }
+                val board=_state.value.circuit.components.firstOrNull { it.id==(boardId ?: _state.value.firmware.boardId) }
                     ?: return@let emptySet()
                 val index=BoardRegistry.boards.getValue(board.kind).index(name)
                 if(index>=0) setOf(TerminalRef(board.id,index)) else emptySet()
             } ?: emptySet())
     }
+    fun describeBoardPin(ref:TerminalRef) {
+        val part=_state.value.circuit.components.firstOrNull { it.id==ref.componentId && it.kind.isBoard } ?: return
+        val board=BoardRegistry.boards.getValue(part.kind)
+        val pin=board.pins.getOrNull(ref.index) ?: return
+        val reading=_state.value.firmware.boardPins[part.id]?.get(pin.name) ?:
+            if(_state.value.firmware.boardId==part.id) _state.value.firmware.pins[pin.name] else null
+        val volts=_state.value.result.nodeVoltages[ref]?.let { "%.2f V".format(it) } ?: "not measured"
+        postMessage("${part.reference} · ${board.displayName(pin.name)} · $volts · "+
+            (reading?.let { "${it.mode} ${it.level} ${if(it.damaged) "DAMAGED" else ""}" } ?: pin.functions.joinToString(" / "))+
+            (pin.maxVoltage?.let { " · input limit $it V" } ?: ""))
+    }
     fun setUsbPower(id:String,enabled:Boolean) {
-        setParameter(id,"usbPower",if(enabled) 1.0 else 0.0)
+        val current=_state.value.circuit
+        edit(current.copy(components=current.components.map { if(it.id==id) it.copy(parameters=it.parameters+("usbPower" to if(enabled) 1.0 else 0.0)) else it },
+            firmware=current.firmware.map { if(it.boardId==id) it.copy(usbPower=enabled) else it }))
         firmwareSession=null
+        ++solveVersion
+        _state.value=_state.value.copy(firmware=_state.value.firmware.copy(running=false,compiled=false))
+        recalculate()
     }
     fun setEnvironment(update:EnvironmentState) {
         _state.value=_state.value.copy(circuit=_state.value.circuit.copy(environment=update))
         firmwareSession?.environment=update
         firmwareRuntime.sessions.values.forEach { it.environment=update }
+        firmwareRuntime.sessions.values.forEach { it.board.updateCircuit(_state.value.circuit) }
         recalculate(preserveReactive=true)
     }
-    fun enqueueSerial(text:String) { firmwareSession?.enqueueSerial(text) }
+    fun enqueueSerial(text:String,port:String="Serial",baud:Int=9600) {
+        val boardId=_state.value.firmware.boardId ?: return
+        val id=if(port=="Serial") boardId else "$boardId:$port"
+        val endpoint=firmwareRuntime.fabric.uart[id]
+        if(endpoint==null) { postMessage("Initialize $port in your firmware before sending.");return }
+        if(endpoint.baud!=baud) { postMessage("Monitor baud $baud does not match $port ${endpoint.baud}.");return }
+        runCatching { firmwareRuntime.fabric.monitorSend(_state.value.circuit,boardId,port,baud,text) }
+            .onFailure { postMessage(it.message ?: "Monitor is unavailable") }
+    }
     fun setSerialPaused(paused:Boolean) {
         _state.value=_state.value.copy(firmware=_state.value.firmware.copy(serialPaused=paused))
     }
@@ -891,13 +933,14 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun runFirmware() {
-        if(firmwareSession==null && !compileFirmware()) return
+        if((firmwareSession==null || _state.value.firmware.error!=null) && !compileFirmware()) return
         _state.value=_state.value.copy(running=false,
             firmware=_state.value.firmware.copy(running=true,error=null))
         advanceFirmware(0)
     }
-    fun pauseFirmware() { _state.value=_state.value.copy(firmware=_state.value.firmware.copy(running=false)) }
+    fun pauseFirmware() { _state.value=_state.value.copy(firmware=_state.value.firmware.copy(running=false));benchAudio.close() }
     fun stopFirmware() {
+        benchAudio.close()
         firmwareRuntime.stop();firmwareSession?.stop();firmwareSession=null
         ++solveVersion
         val idle=solver.solve(_state.value.circuit)
@@ -905,16 +948,18 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
             firmware=_state.value.firmware.copy(running=false,compiled=false,pins=emptyMap()))
         recalculate()
     }
-    fun resetFirmware() {
-        val session=firmwareSession ?: if(compileFirmware()) firmwareSession else null
+    fun resetFirmware(boardId:String?=null) {
+        val session=boardId?.let(firmwareRuntime.sessions::get) ?: firmwareSession ?: if(compileFirmware()) firmwareSession else null
         firmwareRuntime.resetBoard(session?.board?.boardId)
         ++solveVersion
         recalculate()
-        _state.value=_state.value.copy(transient=null,elapsedSeconds=0.0,
-            firmware=_state.value.firmware.copy(running=false,error=null,timeMicros=0,
-                currentLine=0,console=emptyList(),pins=emptyMap(),variables=emptyMap()))
+        _state.value=_state.value.copy(transient=null,elapsedSeconds=(session?.timeMicros ?: 0)/1_000_000.0,
+            firmware=_state.value.firmware.copy(running=false,error=null,timeMicros=session?.timeMicros ?: 0,
+                currentLine=0,console=emptyList(),pins=emptyMap(),variables=emptyMap(),
+                boardPins=_state.value.firmware.boardPins-filterNotNullBoardId(session?.board?.boardId)))
     }
-    fun setForeground(active:Boolean) { foregroundActive=active }
+    fun setForeground(active:Boolean) { foregroundActive=active;if(!active)benchAudio.close() }
+    private fun filterNotNullBoardId(id:String?)=listOfNotNull(id).toSet()
     fun stepFirmware() {
         if(firmwareSession==null && !compileFirmware()) return
         advanceFirmware(1000)
@@ -938,7 +983,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
             sources=state.circuit.firmware.associate { it.boardId to it.source }+
                 (state.firmware.boardId?.let { mapOf(it to state.firmware.source) } ?: emptyMap()),
             usages=usages,
-            pins=mapOfNotNull(state.firmware.boardId,state.firmware.pins),
+            pins=state.firmware.boardPins+mapOfNotNull(state.firmware.boardId,state.firmware.pins),
             missingI2cPullups=!firmwareRuntime.fabric.hasI2cPullups(state.circuit) &&
                 state.circuit.components.any { it.kind in setOf(Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM) },
             duplicateAddresses=firmwareRuntime.fabric.duplicateAddresses())
@@ -969,8 +1014,11 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
                     TransientFrame(frame.timeMicros/1_000_000.0,frame.result.nodeVoltages,
                         frame.result.readings,frame.result.digitalStates) }).takeLast(4000)
                 val latest=next.frames.lastOrNull()
+                if(prior.benchAudioEnabled && foregroundActive)runCatching {
+                    benchAudio.play(com.indianservers.circuitssimulator.simulation.BenchAudio.pcm(prior.circuit,frames))
+                }
                 val boardId=prior.firmware.boardId
-                _state.value=prior.copy(result=latest?.result ?: prior.result,
+                _state.value=prior.copy(circuit=prior.circuit.copy(peripheralMemory=firmwareRuntime.fabric.persistentMemory()),result=latest?.result ?: prior.result,
                     transient=TransientResult(frames=frames),elapsedSeconds=next.timeMicros/1_000_000.0,
                     firmware=prior.firmware.copy(running=prior.firmware.running && next.error==null,
                         error=next.error,timeMicros=next.timeMicros,
@@ -978,20 +1026,74 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
                         console=if(prior.firmware.serialPaused) prior.firmware.console
                             else next.console[boardId] ?: next.console.values.firstOrNull().orEmpty(),
                         pins=next.pins[boardId] ?: latest?.pins ?: prior.firmware.pins,
+                        boardPins=next.pins,
+                        boardRuntime=firmwareRuntime.sessions.mapValues { (_,runtime) ->
+                            "${runtime.board.powerState} · line ${runtime.currentLine}"+
+                                (runtime.board.powerMessage?.let { " · $it" } ?: "") },
                         variables=next.variables[boardId] ?: prior.firmware.variables,
                         busLog=next.busLog.takeLast(80).map { "${it.timeMicros} ${it.kind} ${it.summary}" },
-                        displays=next.displays))
+                        displays=next.displays,framebuffers=firmwareRuntime.fabric.framebuffers(),
+                        peripheralInspectors=firmwareRuntime.fabric.inspectors()))
                 if(latest!=null && (++firmwareDiagnosticCounter%10==0 || next.error!=null)) checkCircuit()
             } finally { firmwareAdvanceInFlight=false }
         }
     }
-    fun toggleRun() { if(_state.value.firmware.running) { pauseFirmware();return }
+    fun toggleRun() { if(_state.value.firmware.running) { pauseFirmware();benchAudio.close();return }
+        if(firmwareSession!=null && _state.value.firmware.compiled) { runFirmware();return }
         _state.value = _state.value.copy(running = !_state.value.running)
         guideUpdate(GuideEvent(if(_state.value.running) GuideEventType.SIMULATION_STARTED else GuideEventType.SIMULATION_STOPPED),_state.value.result) }
     fun setSimulationSpeed(speed:Double) {
         if(speed !in listOf(.25,1.0,4.0)) return
         _state.value=_state.value.copy(simulationSpeed=speed)
         preferences.edit().putFloat("simulation_speed",speed.toFloat()).apply()
+    }
+    fun sendTerminal(id:String,text:String) {
+        runCatching { firmwareRuntime.fabric.terminalSend(_state.value.circuit,id,text) }
+            .onFailure { postMessage(it.message ?: "Terminal is unavailable") }
+    }
+    fun setEmbeddedMode(advanced:Boolean) {
+        val circuit=_state.value.circuit.copy(settings=_state.value.circuit.settings.copy(advancedEmbedded=advanced))
+        _state.value=_state.value.copy(circuit=circuit);autosave(circuit)
+    }
+    fun scanI2cBus() {
+        val session=firmwareSession ?: run { postMessage("Compile firmware and initialize I²C first.");return }
+        if(session.board.boardId !in firmwareRuntime.fabric.i2cRoutes) { postMessage("Initialize I²C in firmware first.");return }
+        val found=firmwareRuntime.fabric.i2cScan(_state.value.circuit,session.board.boardId)
+        postMessage("Scanning I²C: "+found.joinToString { "0x${it.toString(16)}" }+" · ${found.size} devices found")
+    }
+    fun guidePeripheralWiring(id:String) {
+        val part=_state.value.circuit.components.firstOrNull { it.id==id } ?: return
+        val board=_state.value.circuit.components.firstOrNull { it.kind.isBoard }?.let { BoardRegistry.boards[it.kind] }
+        val hint=when(part.kind) {
+            Kind.I2C_TEMP_SENSOR,Kind.I2C_EEPROM,Kind.I2C_LCD,Kind.OLED_SSD1306 ->
+                "SDA → ${board?.hardware?.i2cPins?.first ?: "board SDA"}; SCL → ${board?.hardware?.i2cPins?.second ?: "board SCL"}. Connect compatible VCC and common GND; check pull-ups and address."
+            Kind.SPI_MEMORY -> "MOSI/MISO/SCK → ${board?.hardware?.spiPins?.take(3)?.joinToString() ?: "board SPI"}; wire a separate GPIO to CS. Use 3.3 V power and compatible logic."
+            Kind.SERIAL_TERMINAL -> "Terminal TX → board RX; terminal RX ← board TX; connect common GND. Match baud/framing and logic voltage."
+            Kind.ULTRASONIC -> "Use 5 V VCC and common GND; drive TRIG for ≥10 µs. Measure ECHO width; level-shift its 5 V output for 3.3 V boards."
+            else -> "Connect VCC and common GND. Wire OUT to a compatible board input; wait for PIR warm-up."
+        }
+        postMessage(hint)
+    }
+    fun clearTerminal(id:String) { firmwareRuntime.fabric.clearTerminal(id) }
+    fun inspectMemory(id:String,address:Int,count:Int=64):List<Int> {
+        val memory=firmwareRuntime.fabric.i2cDevices.firstOrNull { it.ownerId==id }?.memory
+            ?: firmwareRuntime.fabric.spiDevices.firstOrNull { it.ownerId==id }?.memory
+            ?: _state.value.circuit.peripheralMemory[id].orEmpty()
+        return List(count.coerceIn(1,256)) { memory[address+it] ?: 255 }
+    }
+    fun editPeripheralMemory(id:String,address:Int,value:Int) {
+        val part=_state.value.circuit.components.firstOrNull { it.id==id } ?: return
+        val limit=when(part.kind) { Kind.I2C_EEPROM -> 256;Kind.SPI_MEMORY -> 4194304;else -> return }
+        if(address !in 0 until limit || value !in 0..255) { postMessage("Memory address or byte is outside the device range.");return }
+        val modelMemory=firmwareRuntime.fabric.i2cDevices.firstOrNull { it.ownerId==id }?.memory
+            ?: firmwareRuntime.fabric.spiDevices.firstOrNull { it.ownerId==id }?.memory
+        val current=modelMemory ?: _state.value.circuit.peripheralMemory[id].orEmpty()
+        if(address !in current && current.size>=65536) { postMessage("Flash storage budget reached; erase data before importing more bytes.");return }
+        modelMemory?.set(address,value)
+        val stored=_state.value.circuit.peripheralMemory
+        val updated=_state.value.circuit.copy(peripheralMemory=stored+(id to (stored[id].orEmpty()+(address to value))))
+        _state.value=_state.value.copy(circuit=updated,firmware=_state.value.firmware.copy(peripheralInspectors=firmwareRuntime.fabric.inspectors()))
+        autosave(updated)
     }
     fun resetTime() {
         ++solveVersion
@@ -1057,5 +1159,13 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         if(_state.value.guide!=null) guideUpdate(GuideEvent(GuideEventType.WIRE_CREATED)) else autosave(_state.value.circuit)
         recalculate()
     }
+    fun openRunnableProject(circuit:Circuit,run:Boolean=false) {
+        loadSample(circuit)
+        val attachment=circuit.firmware.firstOrNull()
+        if(attachment==null) { postMessage("This project has no executable code.");return }
+        showFirmware(true,attachment.boardId)
+        if(run) runFirmware()
+    }
     fun loadSample(circuit: Circuit) { if(_state.value.guide!=null) exitGuide();replaceDocument(circuit) }
+    override fun onCleared() { benchAudio.close();super.onCleared() }
 }

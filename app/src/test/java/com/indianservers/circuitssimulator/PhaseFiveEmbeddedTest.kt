@@ -16,6 +16,12 @@ class PhaseFiveEmbeddedTest {
     private fun wire(a:PlacedComponent,ap:Int,b:PlacedComponent,bp:Int)=
         Wire(start=TerminalRef(a.id,ap),end=TerminalRef(b.id,bp))
 
+    private fun spiBase():Circuit {
+        val board=part(Kind.ESP32_DEVKIT,"ESP",mapOf("usbPower" to 1.0))
+        val ground=part(Kind.GROUND,"GND")
+        val supply=part(Kind.SOURCE,"V",mapOf("voltage" to 5.0))
+        return Circuit("SPI bench",listOf(board,ground,supply),listOf(wire(board,BoardRegistry.boards.getValue(board.kind).index("GND"),ground,0),wire(supply,1,ground,0)))
+    }
     @Test fun blinkCodeDrivesLedThroughSolver() {
         val circuit=FirmwareExamples.blinkCircuit()
         val board=FirmwareBoard(circuit,circuit.components.first { it.kind.isBoard }.id)
@@ -124,16 +130,21 @@ class PhaseFiveEmbeddedTest {
         val board=FirmwareBoard(circuit,circuit.components.first { it.kind.isBoard }.id)
         val session=FirmwareSession(ArduinoSubset.compile(FirmwareExamples.I2C_SCAN,board),board,
             ProtocolFabric().also { it.rebuildDevices(circuit) },circuit.environment)
-        val result=session.advance(0)
+        val result=session.advance(10000)
         assertNull(result.error)
         val joined=result.console.joinToString(" ")
         assertTrue("$joined",joined.contains("0x48") || joined.contains("0x3c") ||
             joined.contains("48") && joined.contains("3c"))
-        val duplicate=circuit.copy(components=circuit.components+part(Kind.I2C_TEMP_SENSOR,"TMP2",
-            mapOf("address" to 0x48.toDouble())))
+        val second=part(Kind.I2C_TEMP_SENSOR,"TMP2",mapOf("address" to 0x48.toDouble()))
+        val original=circuit.components.first { it.kind==Kind.I2C_TEMP_SENSOR }
+        val duplicate=circuit.copy(components=circuit.components+second,wires=circuit.wires+
+            (0..3).map { wire(original,it,second,it) })
         val fabric=ProtocolFabric();fabric.rebuildDevices(duplicate)
+        val poweredBoard=FirmwareBoard(duplicate,board.boardId)
+        fabric.i2cRoutes[board.boardId]=board.definition.hardware.i2cPins!!
+        fabric.electricalResult=poweredBoard.settle().circuitResult
         assertTrue(fabric.duplicateAddresses().contains(0x48))
-        val write=fabric.i2cWrite(duplicate,"controller",0x48,listOf(0),0)
+        val write=fabric.i2cWrite(duplicate,board.boardId,0x48,listOf(0),0)
         assertEquals(4,write)
     }
 
@@ -145,30 +156,31 @@ class PhaseFiveEmbeddedTest {
         val board=FirmwareBoard(circuit,boardPart.id)
         val fabric=ProtocolFabric();fabric.rebuildDevices(circuit)
         val session=FirmwareSession(ArduinoSubset.compile(FirmwareExamples.I2C_TEMP,board),board,fabric,circuit.environment)
-        val result=session.advance(0)
+        val result=session.advance(5000)
         assertNull(result.error)
-        assertTrue("${result.console}",result.console.any { it.contains("27") })
+        assertTrue("${result.console}",result.console.any { it.contains("27.5") })
     }
 
-    @Test fun spiTransferWritesAndReadsMemory() {
-        val base=FirmwareExamples.blinkCircuit()
+    @Test fun spiFlashJedecReadDoesNotProgramMemory() {
+        val base=spiBase()
         val boardPart=base.components.first { it.kind.isBoard }
         val memory=part(Kind.SPI_MEMORY,"U2")
         val supply=base.components.first { it.kind==Kind.SOURCE }
         val ground=base.components.first { it.kind==Kind.GROUND }
         val circuit=base.copy(components=base.components+memory,wires=base.wires+listOf(
-            wire(supply,0,memory,0),wire(memory,1,ground,0),wire(memory,5,ground,0)))
+            wire(boardPart,BoardRegistry.boards.getValue(boardPart.kind).index("3V3"),memory,0),wire(memory,1,ground,0),wire(memory,5,ground,0))+
+            listOf("IO23","IO19","IO18").mapIndexed { i,pin ->
+                wire(boardPart,BoardRegistry.boards.getValue(boardPart.kind).index(pin),memory,i+2) })
         val board=FirmwareBoard(circuit,boardPart.id)
         val fabric=ProtocolFabric();fabric.rebuildDevices(circuit)
-        val code="""void setup() { SPI.begin(); SPI.transfer(161); SPI.transfer(35); }
+        val code="""void setup() { SPI.begin(); SPI.transfer(159); int id=SPI.transfer(0); }
             void loop() { delay(100); }"""
         val session=FirmwareSession(ArduinoSubset.compile(code,board),board,fabric)
-        val result=session.advance(0)
+        val result=session.advance(1000)
         assertNull(result.error)
-        assertTrue(fabric.log.any { it.kind==BusKind.SPI && it.summary.contains("0xa1") })
-        val device=fabric.spiDevices.single()
-        assertEquals(161,device.memory[0])
-        assertEquals(35,device.memory[1])
+        assertTrue(fabric.log.any { it.kind==BusKind.SPI && it.summary.contains("0x9f") })
+        assertEquals("239.0",result.variables["id"])
+        assertTrue(fabric.spiDevices.single().memory.isEmpty())
     }
 
     @Test fun lm35EnvironmentFlowsThroughAdcToSerial() {
@@ -376,22 +388,25 @@ class PhaseFiveEmbeddedTest {
     }
 
     @Test fun unselectedSpiDeviceDoesNotAcceptTransfer() {
-        val base=FirmwareExamples.blinkCircuit()
+        val base=spiBase()
         val boardPart=base.components.first { it.kind.isBoard }
         val selected=part(Kind.SPI_MEMORY,"U2")
         val ignored=part(Kind.SPI_MEMORY,"U3")
         val supply=base.components.first { it.kind==Kind.SOURCE }
         val ground=base.components.first { it.kind==Kind.GROUND }
         val circuit=base.copy(components=base.components+selected+ignored,wires=base.wires+listOf(
-            wire(supply,0,selected,0),wire(selected,1,ground,0),wire(selected,5,ground,0),
-            wire(supply,0,ignored,0),wire(ignored,1,ground,0),wire(ignored,5,supply,0)))
+            wire(boardPart,BoardRegistry.boards.getValue(boardPart.kind).index("3V3"),selected,0),wire(selected,1,ground,0),wire(selected,5,ground,0),
+            wire(boardPart,BoardRegistry.boards.getValue(boardPart.kind).index("3V3"),ignored,0),wire(ignored,1,ground,0),wire(ignored,5,supply,0))+
+            listOf("IO23","IO19","IO18").flatMapIndexed { i,pin ->
+                listOf(wire(boardPart,BoardRegistry.boards.getValue(boardPart.kind).index(pin),selected,i+2),
+                    wire(boardPart,BoardRegistry.boards.getValue(boardPart.kind).index(pin),ignored,i+2)) })
         val board=FirmwareBoard(circuit,boardPart.id)
         val fabric=ProtocolFabric();fabric.rebuildDevices(circuit)
         val session=FirmwareSession(ArduinoSubset.compile(
-            "void setup(){ SPI.begin(); SPI.transfer(99); } void loop(){ delay(100); }",board),board,fabric)
-        val result=session.advance(0)
+            "void setup(){ SPI.begin(); SPI.transfer(159);int id=SPI.transfer(0); } void loop(){ delay(100); }",board),board,fabric)
+        val result=session.advance(1000)
         assertNull(result.error)
-        assertEquals(99,fabric.spiDevices.first { it.ownerId==selected.id }.memory[0])
+        assertEquals("239.0",result.variables["id"])
         assertTrue(fabric.spiDevices.first { it.ownerId==ignored.id }.memory.isEmpty())
     }
 
