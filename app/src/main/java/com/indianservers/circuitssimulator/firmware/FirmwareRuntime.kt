@@ -46,8 +46,9 @@ data class CombinedAdvance(
 
 object BoardSupport {
     fun languages(kind:Kind)=when(BoardRegistry.boards[kind]?.family) {
-        BoardFamily.ARDUINO_AVR,BoardFamily.ARDUINO_SAMD -> listOf(FirmwareLanguage.ARDUINO_SUBSET)
-        BoardFamily.RP2040,BoardFamily.RP2350,BoardFamily.ESP8266,BoardFamily.ESP32,BoardFamily.ESP32_C3 ->
+        BoardFamily.ARDUINO_AVR,BoardFamily.ARDUINO_SAMD,BoardFamily.ARDUINO_SAM,BoardFamily.ARDUINO_RENESAS -> listOf(FirmwareLanguage.ARDUINO_SUBSET)
+        BoardFamily.RP2040,BoardFamily.RP2350,BoardFamily.ESP8266,BoardFamily.ESP32,BoardFamily.ESP32_C3,
+        BoardFamily.ESP32_S3,BoardFamily.ESP32_C6,BoardFamily.ESP32_S2 ->
             listOf(FirmwareLanguage.ARDUINO_SUBSET,FirmwareLanguage.MICROPYTHON_SUBSET)
         null -> emptyList()
     }

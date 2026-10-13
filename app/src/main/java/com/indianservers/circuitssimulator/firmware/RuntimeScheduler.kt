@@ -1,14 +1,12 @@
 package com.indianservers.circuitssimulator.firmware
 
 import com.indianservers.circuitssimulator.domain.*
-import com.indianservers.circuitssimulator.simulation.DcSolver
 
 /** Shared virtual clock for every MCU and the electrical solver. */
 class RuntimeScheduler {
     val fabric=ProtocolFabric()
     val peripherals=PeripheralRuntime()
     val sessions=mutableMapOf<String,FirmwareSession>()
-    private val solver=DcSolver()
     fun clear() { sessions.clear();fabric.reset();peripherals.reset() }
     fun attach(session:FirmwareSession) {
         sessions[session.board.boardId]=session
@@ -40,6 +38,7 @@ class RuntimeScheduler {
     }
     fun stop() { sessions.values.forEach { it.stop() } }
     fun advance(deltaMicros:Long):CombinedAdvance {
+        require(deltaMicros in 0..10_000_000) { "Advance interval must be 0–10 seconds." }
         if(sessions.size==1) {
             val only=sessions.values.single()
             only.environment=only.board.circuit.environment
@@ -55,17 +54,21 @@ class RuntimeScheduler {
         var time=sessions.values.maxOfOrNull { it.timeMicros } ?: 0L
         val target=time+deltaMicros
         try {
-            var first=true
-            while(first || time<target) {
-                first=false
-                val previous=time
+            while(sessions.isNotEmpty()) {
+                // Execute only work due now, then expose all GPIO changes at the same clock.
+                // Advancing an MCU for a whole 2 ms slice used to hide short clock pulses
+                // from peers, whose local gate engines only saw its final GPIO levels.
                 sessions.values.forEach { session ->
                     session.environment=session.board.circuit.environment
-                    val slice=session.advance(minOf(2000L,(target-session.timeMicros).coerceAtLeast(0)))
+                    val slice=session.advance(0)
                     frames+=slice.frames
                     if(slice.error!=null) error=FirmwareDiagnostic(slice.error.line,"${session.board.part.reference}: ${slice.error.message}")
                 }
-                time=sessions.values.maxOf { it.timeMicros }
+                sessions.values.forEach { session ->
+                    val slice=session.advanceElectricalTo(time)
+                    frames+=slice.frames
+                    if(slice.error!=null) error=FirmwareDiagnostic(slice.error.line,"${session.board.part.reference}: ${slice.error.message}")
+                }
                 val circuit=sessions.values.first().board.circuit
                 val envCircuit=peripherals.applyEnvironment(circuit)
                 val sample=time/1_000_000.0
@@ -74,13 +77,21 @@ class RuntimeScheduler {
                 val drives=sessions.values.flatMap { it.board.collectDrives(sample) }+
                     (peripherals.drives(envCircuit,sessions.values.first().board.latest,time)+
                         fabric.uartIdleDrives(circuit,sessions.values.first().board.latest)).filter { it.terminal !in refs }+signals
-                val result=solver.solve(envCircuit,drives)
+                // Preserve gate/clock/latch outputs when producing the shared MCU frame.
+                val result=sessions.values.first().board.settleSharedCircuit(envCircuit,drives,time)
                 fabric.observe(circuit,result,time)
-                sessions.values.forEach { it.board.observe(result,(time-previous)/1_000_000.0,sample) }
+                sessions.values.forEach { it.board.observe(result,0.0,sample) }
                 frames+=FirmwareFrame(time,result,emptyMap())
                 fabric.exchangeUart(circuit,time)
-                peripherals.stepServos(circuit,result,(time-previous)/1_000_000.0,sessions.values.flatMap { it.board.pwmPins().toList() }.toMap())
-                if(time==previous && time<target) break
+                if(time>=target || sessions.values.all { it.isStopped }) break
+                val limit=minOf(target,time+2000L)
+                val next=sessions.values.minOf { it.nextSchedulerEvent(limit) }.coerceAtLeast(time+1)
+                sessions.values.forEach { session ->
+                    val slice=session.advanceElectricalTo(next)
+                    frames+=slice.frames
+                    if(slice.error!=null) error=FirmwareDiagnostic(slice.error.line,"${session.board.part.reference}: ${slice.error.message}")
+                }
+                time=next
             }
         } catch(e:Exception) {
             error=FirmwareDiagnostic(0,e.message ?: "Firmware scheduler failed")

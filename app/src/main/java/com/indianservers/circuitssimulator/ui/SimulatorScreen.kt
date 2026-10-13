@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.*
 import android.app.Activity
@@ -76,7 +77,7 @@ fun SimulatorScreen(model: SimulatorViewModel,onHome:(()->Unit)?=null) {
         val origin=Offset((bounds.width-1000f*scale)/2+state.panX,
             (bounds.height-900f*scale).coerceAtLeast(0f)*.5f+state.panY)
         val world=(local-origin)/scale.coerceAtLeast(.001f)
-        model.add(kind,(world.x/10f).roundToInt()*10f,(world.y/10f).roundToInt()*10f)
+        model.add(kind,world.x,world.y)
     }
     BackHandler(fullScreen || onHome!=null || state.catalogOpen || state.scopeOpen || state.meterOpen || state.bodeOpen || state.parameterAnalysisOpen || state.projectsOpen || state.diagnosticsOpen || state.samplesOpen || state.firmware.open || selected != null || state.selectedWireId != null || state.placement != null) {
         when { state.firmware.open -> model.showFirmware(false);
@@ -107,6 +108,7 @@ fun SimulatorScreen(model: SimulatorViewModel,onHome:(()->Unit)?=null) {
                     !state.parameterAnalysisOpen && !state.scopeOpen && !state.meterOpen
                 Column(Modifier.fillMaxSize()) {
                 WorkspaceHeader(state, model,onHome,wide,fullScreen) { fullScreen=!fullScreen }
+                WorkspaceEditTools(state,model)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp),
                     horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
                     CanvasInteractionMode.entries.forEach { mode ->
@@ -134,6 +136,21 @@ fun SimulatorScreen(model: SimulatorViewModel,onHome:(()->Unit)?=null) {
                     }
                     EnvironmentPanel(state,model,Modifier.padding(horizontal=8.dp).widthIn(max=320.dp))
                     WorkspaceMessage(state.message)
+                    if(state.liveWarnings && state.circuit.components.isNotEmpty()) {
+                        Surface(Modifier.fillMaxWidth().padding(horizontal=8.dp).testTag("canvas-intelligence"),color=Panel,
+                            shape=RoundedCornerShape(10.dp)) {
+                            Row(Modifier.padding(horizontal=10.dp),verticalAlignment=Alignment.CenterVertically) {
+                                Text("Circuit checks: ${state.intelligence.urgent} errors · ${state.intelligence.warnings} warnings · ${state.intelligence.suggestions} suggestions",
+                                    Modifier.weight(1f),color=TextIce,fontSize=11.sp)
+                                TextButton(onClick={model.showDiagnostics(true)},modifier=Modifier.testTag("canvas-review")) { Text("Review") }
+                                state.intelligence.issues.firstOrNull {
+                                    it.componentIds.isNotEmpty() || it.pins.isNotEmpty() || it.wireIds.isNotEmpty()
+                                }?.let { issue ->
+                                    TextButton(onClick={model.focusIssue(issue)},modifier=Modifier.testTag("canvas-locate")) { Text("Locate") }
+                                }
+                            }
+                        }
+                    }
                     state.result.error?.takeIf { state.guide==null || state.running }?.let { error ->
                         Surface(Modifier.fillMaxWidth().padding(horizontal=8.dp),
                             color=Color(0xFF4E242B),shape=RoundedCornerShape(10.dp)) {
@@ -187,6 +204,7 @@ fun SimulatorScreen(model: SimulatorViewModel,onHome:(()->Unit)?=null) {
                                 pendingWireLabelId=id
                                 wireLabelText=state.circuit.wires.firstOrNull { it.id==id }?.label.orEmpty()
                             }
+                            WireRouteButton(id,state,model)
                             ContextAction("⌫","Delete") { model.removeWire(id) }
                         }
                     }

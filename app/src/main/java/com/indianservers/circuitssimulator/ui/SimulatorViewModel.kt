@@ -58,7 +58,10 @@ data class FirmwareUiState(
 data class SimulatorState(
     val circuit: Circuit = SampleCircuits.led(), val result: DcResult = DcResult(),
     val selectedId: String? = null, val selectedWireId: String? = null,
+    val selection:Set<String> = emptySet(),val multiSelect:Boolean=false,
+    val clipboardAvailable:Boolean=false,val snapEnabled:Boolean=false,val gridSpacing:Float=32f,
     val contextId: String? = null, val placement: Kind? = null, val catalogOpen: Boolean = false,
+    val connectionStart:TerminalRef?=null,
     val running: Boolean = true, val message: String? = null, val zoom: Float = 1f,
     val panX: Float = 0f, val panY: Float = 0f,
     val transient: TransientResult? = null, val elapsedSeconds: Double = 0.0,
@@ -94,6 +97,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
     private val acSolver = AcSolver()
     private val fileName = "current_circuit.json"
     private val preferences=app.getSharedPreferences("simulator_ui",0)
+    private var clipboard:Circuit?=null
     private val projectStore=ProjectStore(app)
     private val guideStore=GuideStore(app)
     private var preGuideCircuit:Circuit?=null
@@ -124,6 +128,8 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
     private var canvasSize = Size.Zero
 
     init {
+        _state.value=_state.value.copy(snapEnabled=preferences.getBoolean("snap_enabled",false),
+            gridSpacing=preferences.getFloat("grid_spacing",32f).takeIf { it in setOf(10f,16f,32f,64f) } ?: 32f)
         val recentNames=preferences.getString("recent_kinds",null)
         if(recentNames!=null) _state.value=_state.value.copy(recent=recentNames.split(',').mapNotNull {
             runCatching { Kind.valueOf(it) }.getOrNull()
@@ -166,7 +172,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         val old = _state.value.circuit
         if (old == next) return
         val sameTopology=old.components.map { it.id to it.kind }==next.components.map { it.id to it.kind } &&
-            old.wires==next.wires
+            old.wires.map { it.copy(waypoints=emptyList()) }==next.wires.map { it.copy(waypoints=emptyList()) }
         if(sameTopology) firmwareRuntime.sessions.values.forEach { runCatching { it.board.updateCircuit(next) }
             .onFailure { firmwareSession=null } }
         else firmwareSession=null
@@ -199,6 +205,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
             scopeCh3=valid(state.scopeCh3),scopeCh4=valid(state.scopeCh4),
             meterPlus=valid(state.meterPlus),meterCommon=valid(state.meterCommon),
             meterCurrentWireId=state.meterCurrentWireId?.takeIf { it in wires },
+            connectionStart=valid(state.connectionStart),
             acInput=valid(state.acInput),acOutput=valid(state.acOutput))
     }
     private fun autosave(circuit:Circuit) { viewModelScope.launch(Dispatchers.IO) {
@@ -278,7 +285,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         undo.clear();redo.clear()
         liveCheckpoint=null;liveDigitalSession=null;liveCircuit=null
         _state.value=_state.value.copy(circuit=circuit,projectId=projectId,message=message,result=DcResult(),
-            selectedId=null,selectedWireId=null,contextId=null,placement=null,
+            selectedId=null,selectedWireId=null,contextId=null,placement=null,selection=emptySet(),multiSelect=false,
             projectsOpen=false,diagnosticsOpen=false,samplesOpen=false,scopeOpen=false,meterOpen=false,bodeOpen=false,
             parameterAnalysisOpen=false,
             scopeCh1=null,scopeCh2=null,scopeCh3=null,scopeCh4=null,
@@ -328,6 +335,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
             .map { IssueTransition(it,true,System.currentTimeMillis()) }
         _state.value=_state.value.copy(intelligence=report,
             issueHistory=(_state.value.issueHistory+resolved).takeLast(30))
+        if(_state.value.highlightedIssueId?.let { it !in currentIds }==true) clearIssueFocus()
     }
     fun setIntelligenceMode(mode:ExplanationMode) {
         _state.value=_state.value.copy(intelligenceMode=mode)
@@ -553,7 +561,108 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
             } finally { advanceInFlight=false }
         }
     }
-    fun select(id: String?) { _state.value = _state.value.copy(selectedId = id,selectedWireId=null,contextId=null) }
+    fun select(id: String?) {
+        val current=_state.value
+        if(current.multiSelect && id!=null) {
+            _state.value=current.copy(selection=if(id in current.selection) current.selection-id else current.selection+id,
+                selectedId=null,selectedWireId=null,contextId=null)
+        } else _state.value=current.copy(selectedId=id,selectedWireId=null,contextId=null,selection=emptySet())
+    }
+    fun toggleMultiSelect() { _state.value=_state.value.copy(multiSelect=!_state.value.multiSelect,
+        selectedId=null,selectedWireId=null,selection=emptySet(),contextId=null) }
+    fun selectAllParts() { _state.value=_state.value.copy(selection=_state.value.circuit.components.map { it.id }.toSet()) }
+    fun clearSelection() { _state.value=_state.value.copy(selection=emptySet()) }
+    fun setGrid(enabled:Boolean,spacing:Float) {
+        if(spacing !in setOf(10f,16f,32f,64f)) return
+        _state.value=_state.value.copy(snapEnabled=enabled,gridSpacing=spacing)
+        preferences.edit().putBoolean("snap_enabled",enabled).putFloat("grid_spacing",spacing).apply()
+    }
+    private fun snap(value:Float)=CircuitSelection.snap(value,_state.value.snapEnabled,_state.value.gridSpacing)
+    fun copySelection(cut:Boolean=false) {
+        val current=_state.value
+        val ids=current.selection.ifEmpty { setOfNotNull(current.selectedId) }
+        if(ids.isEmpty()) { postMessage("Select parts to copy.");return }
+        clipboard=CircuitSelection.extract(current.circuit,ids)
+        if(cut) edit(CircuitSelection.delete(current.circuit,ids))
+        _state.value=_state.value.copy(clipboardAvailable=true,selection=if(cut) emptySet() else ids,
+            selectedId=null,message=if(cut) "Selection cut." else "Selection copied.")
+    }
+    fun pasteSelection() {
+        val block=clipboard ?: return
+        insertBlock(block)
+    }
+    private fun insertBlock(block:Circuit) {
+        val old=_state.value.circuit
+        runCatching { CircuitSelection.paste(old,block,snap(64f),snap(64f)) }.fold(onSuccess={ next ->
+            val added=next.components.map { it.id }.toSet()-old.components.map { it.id }.toSet()
+            edit(next)
+            _state.value=_state.value.copy(selection=added,multiSelect=true,selectedId=null,selectedWireId=null)
+        },onFailure={postMessage(it.message ?: "Could not insert selection.")})
+    }
+    fun deleteSelection() {
+        edit(CircuitSelection.delete(_state.value.circuit,_state.value.selection))
+        clearSelection()
+    }
+    fun moveSelection(dx:Float,dy:Float) {
+        val current=_state.value
+        val ids=current.selection
+        val anchor=current.circuit.components.firstOrNull { it.id in ids } ?: return
+        val sx=snap(anchor.x+dx)-anchor.x;val sy=snap(anchor.y+dy)-anchor.y
+        edit(current.circuit.copy(components=current.circuit.components.map { part ->
+            if(part.id in ids) part.copy(x=part.x+sx,y=part.y+sy) else part
+        },wires=current.circuit.wires.map { wire ->
+            if(wire.start.componentId in ids && wire.end.componentId in ids)
+                wire.copy(waypoints=wire.waypoints.map { it.copy(x=it.x+sx,y=it.y+sy) }) else wire
+        }))
+    }
+    fun rotateSelection() {
+        val current=_state.value;val ids=current.selection
+        val parts=current.circuit.components.filter { it.id in ids }
+        if(parts.isEmpty()) return
+        val cx=parts.map { it.x }.average().toFloat();val cy=parts.map { it.y }.average().toFloat()
+        fun turn(x:Float,y:Float)=WirePoint(cx-(y-cy),cy+(x-cx))
+        edit(current.circuit.copy(components=current.circuit.components.map { part ->
+            if(part.id in ids) turn(part.x,part.y).let { point -> part.copy(x=point.x,y=point.y,
+                rotation=(part.rotation+90)%360) } else part
+        },wires=current.circuit.wires.map { wire ->
+            if(wire.start.componentId in ids && wire.end.componentId in ids)
+                wire.copy(waypoints=wire.waypoints.map { turn(it.x,it.y) }) else wire
+        }))
+    }
+    fun saveSelectionBlock(name:String) {
+        val ids=_state.value.selection.ifEmpty { setOfNotNull(_state.value.selectedId) }
+        if(ids.isEmpty()) { postMessage("Select parts to save a block.");return }
+        val block=CircuitSelection.extract(_state.value.circuit,ids).copy(name=name.trim().take(80))
+        if(block.name.isBlank()) { postMessage("Enter a block name.");return }
+        runCatching {
+            val directory=java.io.File(getApplication<Application>().filesDir,"circuit_blocks").apply { mkdirs() }
+            val file=java.io.File(directory,java.util.UUID.randomUUID().toString()+".json")
+            val atomic=android.util.AtomicFile(file)
+            val output=atomic.startWrite()
+            try { output.write(CircuitJson.encode(block).toByteArray(Charsets.UTF_8));atomic.finishWrite(output) }
+            catch(error:Exception) { atomic.failWrite(output);throw error }
+        }.fold(onSuccess={postMessage("Circuit block saved.")},onFailure={postMessage("Could not save block.")})
+    }
+    fun savedBlocks():List<Pair<String,String>> {
+        val directory=java.io.File(getApplication<Application>().filesDir,"circuit_blocks")
+        return directory.listFiles()?.mapNotNull { file ->
+            runCatching { file.name to CircuitJson.decode(file.readText()).name }.getOrNull()
+        }?.sortedBy { it.second }.orEmpty()
+    }
+    fun insertSavedBlock(fileName:String) {
+        if(!Regex("[a-f0-9-]+\\.json").matches(fileName)) return
+        runCatching { CircuitJson.decode(java.io.File(getApplication<Application>().filesDir,
+            "circuit_blocks/$fileName").readText()) }.fold(onSuccess=::insertBlock,
+            onFailure={postMessage("Could not load block.")})
+    }
+    fun setWireRoute(id:String,points:List<WirePoint>) {
+        if(points.size>64 || points.any { !it.x.isFinite() || !it.y.isFinite() || kotlin.math.abs(it.x)>1e6 || kotlin.math.abs(it.y)>1e6 }) {
+            postMessage("Use up to 64 finite waypoints within the workspace bounds.");return
+        }
+        edit(_state.value.circuit.copy(wires=_state.value.circuit.wires.map {
+            if(it.id==id) it.copy(waypoints=points) else it
+        }))
+    }
     fun selectWire(id: String?) { _state.value = _state.value.copy(selectedId=null,selectedWireId=id,contextId=null) }
     fun showContext(id: String?) { _state.value = _state.value.copy(selectedId=id,selectedWireId=null,contextId=id) }
     fun dismissContext() { _state.value = _state.value.copy(contextId=null) }
@@ -631,7 +740,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun add(kind: Kind,x: Float,y: Float) {
         val old = _state.value.circuit
-        val p = PlacedComponent(kind = kind, reference = old.nextReference(kind), x = x, y = y)
+        val p = PlacedComponent(kind = kind, reference = old.nextReference(kind), x = snap(x), y = snap(y))
         edit(old.copy(components = old.components + p))
         _state.value = _state.value.copy(selectedId = p.id,selectedWireId=null,
             recent=(listOf(kind)+_state.value.recent.filterNot { it==kind }).take(6))
@@ -675,7 +784,11 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun move(id: String, x: Float, y: Float) {
         val old = _state.value.circuit
-        edit(old.copy(components = old.components.map { if (it.id == id) it.copy(x = x, y = y) else it }))
+        if(_state.value.multiSelect && id in _state.value.selection) {
+            val part=old.components.firstOrNull { it.id==id } ?: return
+            moveSelection(x-part.x,y-part.y);return
+        }
+        edit(old.copy(components = old.components.map { if (it.id == id) it.copy(x = snap(x), y = snap(y)) else it }))
     }
     fun rotate(id: String) {
         val old = _state.value.circuit
@@ -697,22 +810,42 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun remove(id: String) {
         val old = _state.value.circuit
-        edit(old.copy(components = old.components.filterNot { it.id == id },
-            wires = old.wires.filterNot { it.start.componentId == id || it.end.componentId == id }))
+        edit(CircuitSelection.delete(old,setOf(id)))
         select(null)
     }
     fun connect(a: TerminalRef, b: TerminalRef) {
-        if (a == b || a.componentId == b.componentId) return
         val old = _state.value.circuit
-        val parts=old.components.associateBy { it.id }
-        if(a.index !in 0 until (parts[a.componentId]?.terminalCount ?: 0) ||
-            b.index !in 0 until (parts[b.componentId]?.terminalCount ?: 0)) return
-        if (old.wires.any { (it.start == a && it.end == b) || (it.start == b && it.end == a) }) return
+        ComponentPins.connectionError(old,a,b)?.let { postMessage(it);return }
         edit(old.copy(wires = old.wires + Wire(start = a, end = b)))
+        _state.value=_state.value.copy(connectionStart=null)
+    }
+    fun beginConnection(ref:TerminalRef) {
+        val part=_state.value.circuit.components.firstOrNull { it.id==ref.componentId } ?: return
+        if(!ComponentPins.canConnect(part,ref.index)) { postMessage("This pin cannot be wired.");return }
+        _state.value=_state.value.copy(connectionStart=ref,selectedId=null,selectedWireId=null,
+            highlightedPins=setOf(ref),message="From ${part.reference} · ${ComponentPins.name(part,ref.index)}: tap the destination pin.")
+    }
+    fun cancelConnection() {
+        if(_state.value.connectionStart!=null) _state.value=_state.value.copy(connectionStart=null,highlightedPins=emptySet())
+    }
+    fun disconnectPin(ref:TerminalRef) {
+        val old=_state.value.circuit
+        edit(old.copy(wires=old.wires.filterNot { it.start==ref || it.end==ref }))
+    }
+    fun resetComponentProperties(id:String) {
+        val old=_state.value.circuit
+        val part=old.components.firstOrNull { it.id==id } ?: return
+        val values=ComponentRegistry.definitions.getValue(part.kind).parameters.associate { it.key to it.default }
+        val environment=values.entries.fold(old.environment) { env,(key,value) -> ComponentProperties.environmentAfter(part.kind,key,value,env) }
+        edit(old.copy(environment=environment,components=old.components.map { if(it.id==id) it.copy(parameters=values,closed=it.kind!=Kind.PUSH_BUTTON) else it },
+            firmware=old.firmware.map { if(it.boardId==id) it.copy(usbPower=(values["usbPower"] ?: 0.0)>=.5) else it }))
+        firmwareSession?.environment=environment
+        firmwareRuntime.sessions.values.forEach { it.environment=environment }
     }
     fun connectToJunction(start: TerminalRef, x: Float, y: Float, splitWireId: String? = null) {
         val old = _state.value.circuit
-        if (old.components.none { it.id == start.componentId }) return
+        val source=old.components.firstOrNull { it.id==start.componentId } ?: return
+        if(!ComponentPins.canConnect(source,start.index)) return
         val junction = PlacedComponent(kind=Kind.JUNCTION,reference=old.nextReference(Kind.JUNCTION),
             x=(x/10f).toInt()*10f,y=(y/10f).toInt()*10f)
         val terminal = TerminalRef(junction.id,0)
@@ -722,19 +855,25 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
                 Wire(start=terminal,end=split.end,label=split.label))) +
             Wire(start=start,end=terminal)
         edit(old.copy(components=old.components+junction,wires=wires))
+        _state.value=_state.value.copy(connectionStart=null)
     }
-    fun setParameter(id: String, key: String, value: Double) {
+    fun setParameter(id: String, key: String, value: Double):Boolean {
         val old = _state.value.circuit
-        val p = old.components.firstOrNull { it.id == id } ?: return
-        val spec = ComponentRegistry.definitions.getValue(p.kind).parameters.firstOrNull { it.key == key } ?: return
-        if (!value.isFinite()) return
-        val checked=value.coerceIn(spec.min,spec.max)
-        if((p.kind==Kind.OPAMP || p.kind==Kind.IDEAL_OPAMP) &&
-            ((key=="lowerRail" && checked>=p.value("upperRail")) ||
-                (key=="upperRail" && checked<=p.value("lowerRail")))) return
-        edit(old.copy(components = old.components.map {
-            if (it.id == id) it.copy(parameters = it.parameters + (key to checked)) else it
+        val p = old.components.firstOrNull { it.id == id } ?: return false
+        val spec = ComponentRegistry.definitions.getValue(p.kind).parameters.firstOrNull { it.key == key } ?: return false
+        val validation=ComponentProperties.validate(p,spec,value)
+        validation.error?.let { postMessage(it);return false }
+        val environment=ComponentProperties.environmentAfter(p.kind,key,value,old.environment)
+        if(p.value(key)==value && environment==old.environment) return true
+        if(p.kind.isBoard && key=="usbPower") { setUsbPower(id,value>=.5);return true }
+        edit(old.copy(environment=environment,components = old.components.map {
+            if (it.id == id) it.copy(parameters = it.parameters + (key to value)) else it
         }))
+        if(environment!=old.environment) {
+            firmwareSession?.environment=environment
+            firmwareRuntime.sessions.values.forEach { it.environment=environment }
+        }
+        return true
     }
     fun previewPotentiometerPosition(id:String,position:Double) {
         if(!position.isFinite()) return
@@ -747,6 +886,22 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
             if(it.id==id) it.copy(parameters=it.parameters+("position" to rounded)) else it
         }),acSweep=null)
         recalculate()
+    }
+    fun previewParameter(id:String,key:String,value:Double) {
+        if(!value.isFinite()) return
+        val current=_state.value.circuit
+        val part=current.components.firstOrNull { it.id==id } ?: return
+        val spec=ComponentRegistry.definitions.getValue(part.kind).parameters.firstOrNull { it.key==key } ?: return
+        val checked=value.coerceIn(spec.min,spec.max)
+        if(part.value(key)==checked) return
+        if(part.kind in setOf(Kind.OPAMP,Kind.IDEAL_OPAMP) &&
+            ((key=="lowerRail" && checked>=part.value("upperRail")) ||
+                (key=="upperRail" && checked<=part.value("lowerRail")))) return
+        if(liveParameterOrigin==null) liveParameterOrigin=current
+        _state.value=_state.value.copy(circuit=current.copy(components=current.components.map {
+            if(it.id==id) it.copy(parameters=it.parameters+(key to checked)) else it
+        }),acSweep=null)
+        recalculate(preserveReactive=true)
     }
     fun finishParameterPreview() {
         val origin=liveParameterOrigin ?: return
@@ -985,7 +1140,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
             usages=usages,
             pins=state.firmware.boardPins+mapOfNotNull(state.firmware.boardId,state.firmware.pins),
             missingI2cPullups=!firmwareRuntime.fabric.hasI2cPullups(state.circuit) &&
-                state.circuit.components.any { it.kind in setOf(Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM) },
+                state.circuit.components.any { it.kind in setOf(Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM) || it.kind in MotionSensorParts.profiles },
             duplicateAddresses=firmwareRuntime.fabric.duplicateAddresses())
     }
     private fun mapOfNotNull(id:String?,pins:Map<String,GpioReading>)=
@@ -1065,6 +1220,8 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         val part=_state.value.circuit.components.firstOrNull { it.id==id } ?: return
         val board=_state.value.circuit.components.firstOrNull { it.kind.isBoard }?.let { BoardRegistry.boards[it.kind] }
         val hint=when(part.kind) {
+            in MotionSensorParts.profiles ->
+                "Use a compatible 3.3 V board: SDA → ${board?.hardware?.i2cPins?.first ?: "board SDA"}; SCL → ${board?.hardware?.i2cPins?.second ?: "board SCL"}. Connect VCC and common GND; add external SDA/SCL pull-ups to 3.3 V. No 5 V regulator or level shifter is modeled. Address strap is in Properties; enable measurement through I2C control registers."
             Kind.I2C_TEMP_SENSOR,Kind.I2C_EEPROM,Kind.I2C_LCD,Kind.OLED_SSD1306 ->
                 "SDA → ${board?.hardware?.i2cPins?.first ?: "board SDA"}; SCL → ${board?.hardware?.i2cPins?.second ?: "board SCL"}. Connect compatible VCC and common GND; check pull-ups and address."
             Kind.SPI_MEMORY -> "MOSI/MISO/SCK → ${board?.hardware?.spiPins?.take(3)?.joinToString() ?: "board SPI"}; wire a separate GPIO to CS. Use 3.3 V power and compatible logic."
@@ -1143,9 +1300,12 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         if (undo.isEmpty()) return
         redo.addLast(_state.value.circuit)
         val circuit=undo.removeLast()
+        ++solveVersion
+        refreshFirmwareCircuit(circuit)
         liveCheckpoint=null;liveDigitalSession=null;liveCircuit=null
-        _state.value = retainValidProbes(_state.value.copy(circuit = circuit, selectedId = null,
-            transient=null,elapsedSeconds=0.0),circuit)
+        _state.value = retainValidProbes(_state.value.copy(circuit = circuit,
+            selectedId=_state.value.selectedId?.takeIf { id -> circuit.components.any { it.id==id } },
+            selection=emptySet(),selectedWireId=null,transient=null,elapsedSeconds=0.0),circuit)
         if(_state.value.guide!=null) guideUpdate(GuideEvent(GuideEventType.WIRE_DELETED)) else autosave(_state.value.circuit)
         recalculate()
     }
@@ -1153,11 +1313,25 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         if (redo.isEmpty()) return
         undo.addLast(_state.value.circuit)
         val circuit=redo.removeLast()
+        ++solveVersion
+        refreshFirmwareCircuit(circuit)
         liveCheckpoint=null;liveDigitalSession=null;liveCircuit=null
-        _state.value = retainValidProbes(_state.value.copy(circuit = circuit, selectedId = null,
-            transient=null,elapsedSeconds=0.0),circuit)
+        _state.value = retainValidProbes(_state.value.copy(circuit = circuit,
+            selectedId=_state.value.selectedId?.takeIf { id -> circuit.components.any { it.id==id } },
+            selection=emptySet(),selectedWireId=null,transient=null,elapsedSeconds=0.0),circuit)
         if(_state.value.guide!=null) guideUpdate(GuideEvent(GuideEventType.WIRE_CREATED)) else autosave(_state.value.circuit)
         recalculate()
+    }
+    private fun refreshFirmwareCircuit(circuit:Circuit) {
+        var invalid=false
+        firmwareRuntime.sessions.values.forEach { session ->
+            session.environment=circuit.environment
+            if(runCatching { session.board.updateCircuit(circuit) }.isFailure) invalid=true
+        }
+        if(invalid) {
+            firmwareSession=null
+            _state.value=_state.value.copy(firmware=_state.value.firmware.copy(running=false,compiled=false))
+        }
     }
     fun openRunnableProject(circuit:Circuit,run:Boolean=false) {
         loadSample(circuit)

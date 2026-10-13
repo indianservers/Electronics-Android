@@ -8,12 +8,24 @@ Native Kotlin/Jetpack Compose circuit workspace. Open Circuit Designer from the 
 - `simulation`: modified nodal DC, resumable transient, AC, and mixed-signal coordination with electrical readings and rating alerts.
 - `firmware`: Arduino-subset and MicroPython-subset interpreters on placed boards.
 - `guide` and `intelligence`: lessons and diagnostics that read the same circuit.
-- `data`: JSON document, schema version 5. Save writes to app-private storage; a corrupt file is rejected.
+- `data`: JSON document, schema version 6 (reads versions 1–6). Save writes to app-private storage; a corrupt file is rejected.
 - `ui`: ViewModel state/history and native Compose workspace, catalog, board inspector, and canvas drawings.
 
 Electrical topology is defined by terminal references and wires; canvas coordinates only control presentation. Each component shows its actual electrical pins even when it is not selected. Blue pins are open; green pins have wires. Battery and other polarized pins are labeled `+` and `−`; three-terminal devices show their pin roles. A wire crossing does not create an electrical connection. Tap one pin and then another, or drag between pins, to connect their exact electrical terminal indices. Drag onto an existing wire to create an explicit junction.
 
 ## Controls
+
+Gyroscope and accelerometer sensors now include L3GD20, LSM6DSOX, LIS3DH and ADXL345. Samples → Sensors contains ready-wired ESP32 motion labs; edit angular velocity/acceleration in the sensor Properties tab and read signed samples through I2C firmware. Manufacturer datasheets, carrier-to-chip pin mappings and the supported register subsets are documented in [motion sensor models](docs/MOTION_SENSOR_MODELS.md).
+
+The live **Circuit checks** canvas strip summarizes errors, warnings and suggestions. **Review** opens explanations and fix previews; **Locate** highlights the most urgent finding. Twenty new checks cover wiring integrity, floating transistor controls, missing supplies/returns, IoT sensor power and ADC compatibility, output conflicts and redundant probes. See [canvas intelligence](docs/CANVAS_INTELLIGENCE.md) for the exact checks and model limits. Resolved findings clear their canvas highlight and enter diagnostic history.
+
+Every component now uses **Properties**, **Pins**, and **Specifications** tabs. The property editor accepts engineering units (such as `4.7 kΩ`, `100 µF` and `3 s`), scientific notation, percent positions/duty cycles, and hex I²C addresses. It preserves small values and precision, shows valid ranges, and rejects invalid units, fractional discrete settings, out-of-range values and contradictory supply rails. Apply commits one undoable edit; Reset values restores defaults. Model tuning parameters are grouped separately from everyday settings. Legacy temperature/light stimuli also update the shared firmware Environment when edited.
+
+The Pins tab shows named electrical terminals, package pin numbers where documented, roles, connected destinations and solved readings. **Connect** opens a searchable exact-pin picker, or **Pick on canvas** arms that terminal. NC, reserved and internal-only endpoints cannot start a new wire. Different connectable pins on the same component can be jumpered; internally shared pads remain the same net. Package numbering is separate from solver indexing: for example, 2N3904 collector is physical pin 3 while the solver retains its C/B/E electrical order. Moving, rotating and resizing do not remap wires. Manufacturer references and model limits are in Specifications; boards also retain their detailed reference guide.
+
+The editor toolbar supports additive group selection, select all, cut/copy/paste, group rotation/movement/deletion, and saved flat Circuit blocks. Blocks insert editable parts, internal wires, board programs and peripheral memory with new identities; copied named nets are isolated from existing nets. Blocks are not hierarchical custom ICs. Snap and grid spacing are saved on the device. Wire actions include Route: one `x, y` waypoint per line; clear the field to restore automatic routing. JSON and circuit PNG exports preserve manual routes.
+
+Truth table enumerates 1–8 Logic inputs and reads Logic outputs for supported combinational gates and blocks. It uses the simulator's existing logic functions, excludes propagation delays, displays X/Z for unknown/undriven nets, and rejects sequential, feedback and analog circuits. The [three-phase roadmap](docs/THREE_PHASE_ROADMAP.md) lists the full competitive-feature scope and acceptance criteria; these first increments do not complete all three phases.
 
 Projects now have **Code** and **Run project** actions. Code opens the saved editable program; Run compiles and executes it, opens live output, and drives the connected circuit. Run/Pause, Step, Reset and Stop stay available on every firmware tab. See [runnable projects](docs/RUNNABLE_PROJECTS.md) for each example and its interactive output.
 

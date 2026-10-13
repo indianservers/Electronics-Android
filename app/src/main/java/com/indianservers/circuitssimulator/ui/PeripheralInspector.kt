@@ -41,7 +41,7 @@ internal fun PeripheralInspector(part:PlacedComponent,state:SimulatorState,model
                 context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(url)))
             }}) { Text("Manufacturer reference") }
         }
-        if(part.kind in setOf(Kind.I2C_TEMP_SENSOR,Kind.I2C_EEPROM,Kind.I2C_LCD,Kind.OLED_SSD1306))
+        if(part.kind in setOf(Kind.I2C_TEMP_SENSOR,Kind.I2C_EEPROM,Kind.I2C_LCD,Kind.OLED_SSD1306) || part.kind in MotionSensorParts.profiles)
             TextButton(onClick=model::scanI2cBus) { Text("Scan connected I²C bus") }
         val readings=state.firmware.peripheralInspectors[part.id].orEmpty()
         if(readings.isEmpty()) Text("Run firmware to inspect live device state.",color=Muted)

@@ -442,5 +442,6 @@ object BoardRegistry {
                 "https://datasheets.raspberrypi.com/pico/pico-2-datasheet.pdf")),
             listOf("RP2350-specific peripherals beyond the Pico-compatible subset are not simulated."),
             buses,usbConnector="Micro-USB",boardWidth=172f,boardHeight=300f,pcbColor=0xFF0F5C3A)
-    ).map(BoardHardwareProfiles::enrich).associateBy { it.kind }
+    ).let { existing -> existing + AdditionalBoards.create(existing.associateBy { it.kind }) }
+        .map(BoardHardwareProfiles::enrich).associateBy { it.kind }
 }

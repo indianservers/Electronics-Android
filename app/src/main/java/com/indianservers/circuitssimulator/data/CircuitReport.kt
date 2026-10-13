@@ -1,4 +1,5 @@
 package com.indianservers.circuitssimulator.data
+import com.indianservers.circuitssimulator.domain.WirePoint
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -30,8 +31,11 @@ object CircuitReport {
             canvas.drawText("Empty circuit",80f,120f,paint)
             return bitmap
         }
-        val minX=parts.minOf { it.x }-110f;val maxX=parts.maxOf { it.x }+110f
-        val minY=parts.minOf { it.y }-100f;val maxY=parts.maxOf { it.y }+100f
+        val points=circuit.wires.flatMap { it.waypoints }
+        val minX=minOf(parts.minOf { it.x }-110f,points.minOfOrNull { it.x-20f } ?: Float.MAX_VALUE)
+        val maxX=maxOf(parts.maxOf { it.x }+110f,points.maxOfOrNull { it.x+20f } ?: -Float.MAX_VALUE)
+        val minY=minOf(parts.minOf { it.y }-100f,points.minOfOrNull { it.y-20f } ?: Float.MAX_VALUE)
+        val maxY=maxOf(parts.maxOf { it.y }+100f,points.maxOfOrNull { it.y+20f } ?: -Float.MAX_VALUE)
         val scale=min((WIDTH-100f)/(maxX-minX),(HEIGHT-110f)/(maxY-minY))
         canvas.translate((WIDTH-(maxX-minX)*scale)/2f-minX*scale,
             (HEIGHT-(maxY-minY)*scale)/2f-minY*scale)
@@ -43,8 +47,13 @@ object CircuitReport {
             val a=byId[wire.start.componentId]?.let { terminalPosition(it,wire.start.index) }
             val b=byId[wire.end.componentId]?.let { terminalPosition(it,wire.end.index) }
             if(a!=null && b!=null) {
-                canvas.drawLine(a.x,a.y,b.x,a.y,paint)
-                canvas.drawLine(b.x,a.y,b.x,b.y,paint)
+                if(wire.waypoints.isEmpty()) {
+                    canvas.drawLine(a.x,a.y,b.x,a.y,paint)
+                    canvas.drawLine(b.x,a.y,b.x,b.y,paint)
+                } else {
+                    val route=listOf(WirePoint(a.x,a.y))+wire.waypoints+WirePoint(b.x,b.y)
+                    route.zipWithNext().forEach { (from,to) -> canvas.drawLine(from.x,from.y,to.x,to.y,paint) }
+                }
                 wire.label?.let { label ->
                     val x=if(kotlin.math.abs(b.x-a.x)>=kotlin.math.abs(b.y-a.y)) (a.x+b.x)/2f else b.x
                     val y=if(kotlin.math.abs(b.x-a.x)>=kotlin.math.abs(b.y-a.y)) a.y else (a.y+b.y)/2f

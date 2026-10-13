@@ -25,6 +25,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import com.indianservers.circuitssimulator.domain.Circuit
 import com.indianservers.circuitssimulator.domain.SampleCircuits
+import com.indianservers.circuitssimulator.domain.MotionSensorParts
+import com.indianservers.circuitssimulator.firmware.MotionSensorExamples
 import com.indianservers.circuitssimulator.ui.canvas.*
 
 private data class SampleEntry(val title:String,val category:String,val description:String,
@@ -61,7 +63,9 @@ private val sampleEntries=listOf(
     SampleEntry("ESP32 OLED","Firmware","I²C OLED on GPIO21/22",SampleCircuits::esp32Oled),
     SampleEntry("Pico ADC","Firmware","GP26 analog read on Pico",SampleCircuits::picoAdcPwm),
     SampleEntry("NodeMCU LDR","Firmware","A0 light sensor on NodeMCU",SampleCircuits::nodeMcuLdr)
-)
+) + MotionSensorParts.profiles.values.map { profile ->
+    SampleEntry("${profile.part} Motion Lab","Sensors","ESP32 I2C ${if(profile.gyro) "gyroscope" else "accelerometer"} with editable motion",{MotionSensorExamples.circuit(profile.kind)})
+}
 
 @Composable
 fun SampleBrowser(model:SimulatorViewModel) {

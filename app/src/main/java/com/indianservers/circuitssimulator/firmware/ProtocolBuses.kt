@@ -73,6 +73,7 @@ class ProtocolFabric {
             val part=circuit.components.firstOrNull { it.id==device.ownerId }
             device.address=part?.value("address")?.toInt() ?: device.address
             device.writeProtected=part?.value("writeProtect")==1.0
+            device.motion?.stimuli=part?.parameters.orEmpty()
             device.powerChanged(powered(circuit,device.ownerId),time)
         }
         spiDevices.forEach { device ->
@@ -85,6 +86,18 @@ class ProtocolFabric {
     }
     var autoI2cPullups=true
         private set
+    /** Release only this MCU's queued bus work; other controllers keep running. */
+    fun resetController(id:String) {
+        val endpoints=uart.values.filter { it.ownerId==id }.toSet()
+        deliveries.removeIf { it.target in endpoints }
+        uart.entries.removeAll { it.value.ownerId==id }
+        uartBusyUntil.remove(id)
+        completionTimes.remove(id)
+        i2cRoutes.remove(id)
+        i2cHeld.remove(id)
+        spiConfigurations.remove(id)
+        waveforms.clearController(id)
+    }
     fun reset() {
         electricalResult=null
         log.clear();uart.clear();i2cRoutes.clear();waveforms.clear();completionTimes.clear();i2cHeld.clear();spiConfigurations.clear();deliveries.clear();uartBusyUntil.clear()
@@ -103,7 +116,8 @@ class ProtocolFabric {
         i2cDevices.clear();spiDevices.clear()
         circuit.components.forEach { part ->
             when(part.kind) {
-                Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM ->
+                Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM,
+                Kind.L3GD20_GYRO,Kind.LSM6DSOX_IMU,Kind.LIS3DH_ACCEL,Kind.ADXL345_ACCEL ->
                     i2cDevices+=oldI2c[part.id]?.takeIf { it.kind==part.kind }
                         ?: I2cDeviceModel(part.value("address").toInt(),part.id,part.kind)
                 Kind.SPI_MEMORY -> spiDevices+=oldSpi[part.id] ?: SpiDeviceModel(part.id,TerminalRef(part.id,5))
@@ -173,7 +187,10 @@ class ProtocolFabric {
                 listOf(2,3).all { pin ->
                     val voltage=(electricalResult?.nodeVoltages?.get(TerminalRef(device.ownerId,pin)) ?: 0.0)-
                         (electricalResult?.nodeVoltages?.get(TerminalRef(device.ownerId,1)) ?: 0.0)
-                    voltage<=device.profile.electrical.inputMaximum+.15
+                    val supply=(electricalResult?.nodeVoltages?.get(TerminalRef(device.ownerId,0)) ?: 0.0)-
+                        (electricalResult?.nodeVoltages?.get(TerminalRef(device.ownerId,1)) ?: 0.0)
+                    if(device.kind in MotionSensorParts.profiles) voltage in -.3..minOf(3.6,supply+.3)
+                    else voltage<=device.profile.electrical.inputMaximum+.15
                 }
         }
     }

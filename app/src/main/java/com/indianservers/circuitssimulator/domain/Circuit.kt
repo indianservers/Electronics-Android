@@ -102,7 +102,27 @@ enum class Kind(val title: String, val prefix: String, val category: String) {
     I2C_EEPROM("I2C EEPROM", "EE", "Embedded"),
     ULTRASONIC("Ultrasonic ranger", "US", "Embedded"),
     PIR_SENSOR("PIR motion sensor", "PIR", "Embedded"),
-    SPI_MEMORY("SPI memory", "MEM", "Embedded")
+    SPI_MEMORY("SPI memory", "MEM", "Embedded"),
+    L3GD20_GYRO("L3GD20 gyroscope", "GYRO", "Sensors"),
+    LSM6DSOX_IMU("LSM6DSOX 6-axis IMU", "IMU", "Sensors"),
+    LIS3DH_ACCEL("LIS3DH accelerometer", "ACC", "Sensors"),
+    ADXL345_ACCEL("ADXL345 accelerometer", "ACC", "Sensors"),
+    TMP35_SENSOR("TMP35 temperature sensor", "IOT", "Sensors"),
+    TMP36_SENSOR("TMP36 temperature sensor", "IOT", "Sensors"),
+    TMP37_SENSOR("TMP37 temperature sensor", "IOT", "Sensors"),
+    MCP9700_SENSOR("MCP9700 temperature sensor", "IOT", "Sensors"),
+    MCP9701_SENSOR("MCP9701 temperature sensor", "IOT", "Sensors"),
+    AD22100_SENSOR("AD22100S temperature sensor", "IOT", "Sensors"),
+    AD22103_SENSOR("AD22103K temperature sensor", "IOT", "Sensors"),
+    HIH4030_SENSOR("HIH-4030 humidity sensor", "IOT", "Sensors"),
+    ARDUINO_LEONARDO("Arduino Leonardo", "LEO", "Development Boards"),
+    ARDUINO_MICRO("Arduino Micro", "MICRO", "Development Boards"),
+    ARDUINO_DUE("Arduino Due", "DUE", "Development Boards"),
+    ARDUINO_UNO_R4_MINIMA("Arduino UNO R4 Minima", "R4", "Development Boards"),
+    RASPBERRY_PICO_2_W("Raspberry Pi Pico 2 W", "PICO2W", "Development Boards"),
+    ESP32_S3_DEVKIT("ESP32-S3-DevKitC-1 N8R8", "S3", "Development Boards"),
+    ESP32_C6_DEVKIT("ESP32-C6-DevKitC-1", "C6", "Development Boards"),
+    ESP32_S2_SAOLA("ESP32-S2-Saola-1", "S2", "Development Boards")
 }
 
 val Kind.isBoard get() = category == "Development Boards"
@@ -300,6 +320,7 @@ object ComponentRegistry {
         *PhaseOneParts.definitions.toTypedArray(),
         *DigitalParts.definitions.toTypedArray(),
         *ElectromechanicalParts.definitions.toTypedArray(),
+        *IotSensorParts.definitions.toTypedArray(),
         *SemiconductorSwitchParts.definitions.toTypedArray(),
         *IcParts.definitions.toTypedArray(),
         *PhaseFiveParts.definitions.toTypedArray(),
@@ -395,8 +416,9 @@ data class PlacedComponent(
 }
 
 data class TerminalRef(val componentId: String, val index: Int)
+data class WirePoint(val x:Float,val y:Float)
 data class Wire(val id: String = UUID.randomUUID().toString(), val start: TerminalRef, val end: TerminalRef,
-                val label:String?=null)
+                val label:String?=null,val waypoints:List<WirePoint> = emptyList())
 data class SimulationSettings(val analysis: String = "DC", val tolerance: Double = 1e-8, val maxIterations: Int = 80,
     val advancedEmbedded:Boolean=false)
 data class Circuit(val name: String, val components: List<PlacedComponent>, val wires: List<Wire>,

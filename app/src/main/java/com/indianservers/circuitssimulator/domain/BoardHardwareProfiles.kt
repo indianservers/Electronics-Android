@@ -9,7 +9,7 @@ data class BoardHardwareProfile(
     val regulatedInputs:Map<String,ClosedFloatingPointRange<Double>> = emptyMap(),
     val bootLevels:Map<String,Boolean> = emptyMap(),val notes:List<String> = emptyList(),
     val uartNames:List<String> = emptyList(),val uartControllerIds:List<Int> = emptyList(),
-    val usbSerial:Boolean=false
+    val usbSerial:Boolean=false,val sramBytes:Int?=null
 )
 
 /** Hardware facts are distinct from the bounded interpreter and educational damage policy. */
@@ -73,7 +73,7 @@ object BoardHardwareProfiles {
         Kind.RASPBERRY_PICO_2 -> pico.copy(profileId="raspberry-pi-pico2-rp2350",clockMhz=150,flashKb=4096,sramKb=520,
             timers="RP2350: 16 PWM channels exposed by Pico 2; 12 PIO state machines",
             notes=pico.notes+"RP2350 instruction sets, security, PIO and internal peripherals are not emulated.")
-        else -> error("No hardware profile for $kind")
+        else -> AdditionalBoardHardware.forKind(kind)
     }
     fun enrich(board:BoardDefinition):BoardDefinition {
         val profile=board.hardware
@@ -92,15 +92,19 @@ object BoardHardwareProfiles {
                     add("PWM slice ${(n/2)%8} ${if(n%2==0) "A" else "B"}")
                     add("I2C${(n/2)%2} ${if(n%2==0) "SDA" else "SCL"}")
                     add("SPI${(n/8)%2} ${listOf("MISO","CS","SCK","MOSI")[n%4]}")
-                    add("PIO0/PIO1")
+                    add(if(board.family==BoardFamily.RP2350) "PIO0/PIO1/PIO2" else "PIO0/PIO1")
                 }
             }
             val interrupt=when(board.family) {
-                BoardFamily.ARDUINO_AVR -> n in if(board.kind==Kind.ARDUINO_MEGA) setOf(2,3,18,19,20,21) else setOf(2,3)
+                BoardFamily.ARDUINO_AVR -> n in when(board.kind) {
+                    Kind.ARDUINO_MEGA -> setOf(2,3,18,19,20,21)
+                    Kind.ARDUINO_LEONARDO,Kind.ARDUINO_MICRO -> setOf(0,1,2,3,7)
+                    else -> setOf(2,3)
+                }
                 BoardFamily.ESP8266 -> n!=null && n!=16
                 else -> PinCapability.DIGITAL_INPUT in pin.capabilities
             }
-            pin.copy(functions=functions,capabilities=pin.capabilities+
+            pin.copy(functions=pin.functions+functions,capabilities=pin.capabilities+
                 (if(functions.any { it.startsWith("UART") }) setOf(PinCapability.UART) else emptySet())+
                 (if(interrupt) setOf(PinCapability.INTERRUPT) else emptySet())+
                 (if(board.family==BoardFamily.ESP32 && n in setOf(25,26)) setOf(PinCapability.DAC) else emptySet())+
@@ -110,9 +114,10 @@ object BoardHardwareProfiles {
                 physicalLabel=if(board.family==BoardFamily.ARDUINO_AVR && pin.name.startsWith("D"))
                     pin.name.drop(1)+(if(pin.name=="D0") "/RX" else if(pin.name=="D1") "/TX" else
                         if(PinCapability.PWM in pin.capabilities) "~" else "") else pin.name,
-                maxCurrentMa=if(PinCapability.DIGITAL_OUTPUT in pin.capabilities) profile.recommendedPinCurrentMa else null,
-                pullUpSupported=!(board.family==BoardFamily.ESP32 && pin.inputOnly) && !(board.family==BoardFamily.ESP8266 && n==16),
-                pullDownSupported=(board.family in setOf(BoardFamily.RP2040,BoardFamily.RP2350,BoardFamily.ESP32,BoardFamily.ESP32_C3) && !pin.inputOnly) ||
+                maxCurrentMa=if(PinCapability.DIGITAL_OUTPUT in pin.capabilities) pin.maxCurrentMa ?: profile.recommendedPinCurrentMa else null,
+                pullUpSupported=pin.pullUpSupported && !(board.family==BoardFamily.ESP32 && pin.inputOnly) && !(board.family==BoardFamily.ESP8266 && n==16),
+                pullDownSupported=pin.pullDownSupported || (board.family in setOf(BoardFamily.RP2040,BoardFamily.RP2350,BoardFamily.ESP32,BoardFamily.ESP32_C3,
+                    BoardFamily.ESP32_S3,BoardFamily.ESP32_C6,BoardFamily.ESP32_S2) && !pin.inputOnly && PinCapability.DIGITAL_INPUT in pin.capabilities) ||
                     (board.family==BoardFamily.ESP8266 && n==16),
                 pwmResource=if(board.family in setOf(BoardFamily.RP2040,BoardFamily.RP2350) && n!=null) "PWM${(n/2)%8}" else null)
         }
@@ -137,7 +142,7 @@ object BoardHardwareProfiles {
         }
         return board.copy(pins=pins,adcReferenceVoltage=if(board.kind==Kind.NODEMCU_ESP8266) 3.2 else board.adcReferenceVoltage,
             references=(board.references+extraReferences).map { it.copy(applicableRevision=board.revision,
-                    lastVerified=if(verified) "2026-10-04" else null) },
+                    lastVerified=if(verified) "2026-10-04" else it.lastVerified) },
             ledBuiltin=if(board.kind in setOf(Kind.ESP32_DEVKIT,Kind.ESP32_C3_DEVKIT)) null else board.ledBuiltin)
     }
 }

@@ -146,3 +146,73 @@ Physical time accuracy, full MCU instruction execution, timer registers, Wi-Fi,
 Bluetooth, PIO programs, touch/DAC, arbitrary third-party sensor libraries and
 Linux Raspberry Pi SBC operating systems are outside this implementation.
 There is no DHT component or Linux SBC Kind in the current catalog.
+
+## Eight additional boards audited on 2026-10-12
+
+The catalog now has 19 development boards. These additions share the executable
+firmware subset and electrical solver, with separate hardware profiles and pin maps.
+Header silkscreen names identify terminals. Espressif connector numbers are local
+to J1/J2/J3; Arduino headers use silkscreen names instead of fabricated global pin
+numbers. SPI/ICSP pin numbers follow the six-pin connector drawing. Canvas spacing
+is illustrative, not a dimensioned PCB footprint. USB/debug/test pads are excluded.
+
+| Selected board | Terminals, including NC/internal endpoints | Logic / default ADC read | Key differences |
+|---|---|---|---|
+| Leonardo A000057 / ATmega32U4 | 32 main + 6 ICSP | 5 V / 10-bit | I2C D2/D3; SPI ICSP MISO D14, SCK D15, MOSI D16; Serial USB CDC, Serial1 D1/D0; seven PWM pins |
+| Micro A000053 / ATmega32U4 | 34 main + 6 ICSP | 5 V / 10-bit | Two NC pads; SPI also exposed on D14–D17; A6–A11 share D4/D6/D8/D9/D10/D12; 2.5 KiB SRAM |
+| Due A000062 / SAM3X8E | 86 main + 6 SPI | 3.3 V / 10-bit Arduino default | 54 digital, 12 ADC, two DAC and two CAN pads; SPI separate from D50–D52; SDA1/SCL1 separate from D20/D21 |
+| UNO R4 Minima ABX00080 / RA4M1 | 32 main + 6 ICSP | 5 V / 10-bit Arduino default | 48 MHz, 256 KiB flash, 32 KiB SRAM; six PWM pins; 8 mA GPIO recommendation; 14-bit ADC hardware and A0 DAC distinguished from runtime |
+| Pico 2 W / RP2350 + CYW43439 | 40 main + virtual WL_LED | 3.3 V / 12-bit | 150 MHz, 4 MiB flash, 520 KiB SRAM; GP26–28 ADC; WL_GPIO0 LED, not GP25; PIO2 hardware metadata |
+| ESP32-S3-DevKitC-1 v1.1 N8R8 | 44 J1/J3 positions | 3.3 V / 12-bit | 8 MiB flash + 8 MiB octal PSRAM; GPIO35–37 reserved; GPIO46 supports output; v1.1 RGB LED GPIO38 |
+| ESP32-C6-DevKitC-1 v1.2 / WROOM-1 | 32 J1/J3 positions | 3.3 V / 12-bit | Two NC positions; UART GPIO16/17; core Wire defaults GPIO23/22 and SPI GPIO19/20/21/18; RGB LED GPIO8 |
+| ESP32-S2-Saola-1 v1.2 / WROVER revision 0 | 42 J2/J3 positions | 3.3 V / 13-bit | GPIO26 reserved for PSRAM CS, GPIO46 input-only; RGB LED GPIO18; Wi-Fi but no Bluetooth; legacy EOL module |
+
+ADC transfer is a nominal linear approximation: reference 5 V on the AVR/R4
+boards, 3.3 V on Due/Pico 2 W/C6, 3.1 V on S3 and 2.5 V on S2. The latter two
+represent a fixed high-attenuation setting. Noise, calibration, sample/hold timing
+and ADC2 contention are omitted. Configurable ADC resolution/attenuation APIs are
+outside the subset. Due and R4 hardware resolution is not confused with Arduino's
+default read resolution. S2 revision 0's 13-bit default follows the ADC-112 workaround.
+The conservative 3 mA Due GPIO policy is not a claim that every SAM3X pin has the
+same physical current rating. Power regulation and current/damage remain educational.
+
+All new boards advertise functional subset execution. Radios, addressable RGB LED
+protocols, USB HID/JTAG, DAC output, CAN, Wire1/LP I2C, CPU instructions and register
+programming remain hardware metadata or unsupported. Blink uses an external GPIO4
+LED on the new Espressif boards, rather than treating their RGB LED as a plain LED.
+Public GPIO APIs resolve aliases and reject pins already claimed by a bus.
+
+Primary sources used for these maps and profiles:
+
+- Arduino [Leonardo pinout](https://docs.arduino.cc/resources/pinouts/A000057-full-pinout.pdf),
+  [Micro pinout](https://docs.arduino.cc/resources/pinouts/A000053-full-pinout.pdf),
+  [ATmega32U4 datasheet](https://ww1.microchip.com/downloads/en/devicedoc/atmel-7766-8-bit-avr-atmega16u4-32u4_datasheet.pdf)
+  and [official AVR core mapping](https://raw.githubusercontent.com/arduino/ArduinoCore-avr/master/variants/leonardo/pins_arduino.h).
+- Arduino [Due pinout](https://docs.arduino.cc/resources/pinouts/A000056-full-pinout.pdf),
+  [Due datasheet](https://docs.arduino.cc/resources/datasheets/A000062-datasheet.pdf)
+  and [SAM core mapping](https://raw.githubusercontent.com/arduino/ArduinoCore-sam/master/variants/arduino_due_x/variant.h).
+- Arduino [R4 Minima pinout](https://docs.arduino.cc/resources/pinouts/ABX00080-full-pinout.pdf),
+  [datasheet](https://docs.arduino.cc/resources/datasheets/ABX00080-datasheet.pdf)
+  and [Renesas core mapping](https://raw.githubusercontent.com/arduino/ArduinoCore-renesas/main/variants/MINIMA/pins_arduino.h).
+- Raspberry Pi [Pico 2 W datasheet, Release 2](https://datasheets.raspberrypi.com/picow/pico-2-w-datasheet.pdf)
+  and [RP2350 datasheet](https://pip-assets.raspberrypi.com/categories/1214-rp2350/documents/RP-008373-DS-2-rp2350-datasheet.pdf).
+- Espressif [S3 v1.1 header guide](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.1.html),
+  [C6 v1.2 header guide](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32c6/esp32-c6-devkitc-1/user_guide.html),
+  [S2 Saola guide](https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32s2/hw-reference/esp32s2/user-guide-saola-1-v1.2.html),
+  [S2 schematic](https://dl.espressif.com/dl/schematics/ESP32-S2-SAOLA-1_V1.1_schematics.pdf)
+  (drawing title identifies v1.2; it resolves the guide's J3 row-number typo),
+  and [WROVER module datasheet](https://www.espressif.com/sites/default/files/documentation/esp32-s2-wrover_esp32-s2-wrover-i_datasheet_en.pdf).
+- Espressif official Arduino core defaults:
+  [S3](https://raw.githubusercontent.com/espressif/arduino-esp32/master/variants/esp32s3/pins_arduino.h),
+  [C6](https://raw.githubusercontent.com/espressif/arduino-esp32/master/variants/esp32c6/pins_arduino.h),
+  [S2](https://raw.githubusercontent.com/espressif/arduino-esp32/master/variants/esp32s2/pins_arduino.h)
+  and [ADC API / revision-0 workaround](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html).
+
+`AdditionalBoardsTest` checks independent header sequences, terminal counts,
+aliases, actual ADC channels, unique coordinates, revision/module restrictions,
+GPIO high/low voltages, PWM phases, default UART identities, unpowered boards,
+I2C reads from a wired powered temperature sensor, and JEDEC reads through the
+correct SPI connector. Direct 5 V SPI signals are rejected by the W25Q32JV model.
+Existing registry, firmware starter, pin layout and electrical tests also include
+the new boards. Android emulator interaction and native instruction emulation are
+not covered by these JVM tests.

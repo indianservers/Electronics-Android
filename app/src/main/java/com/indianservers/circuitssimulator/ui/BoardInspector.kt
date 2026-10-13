@@ -177,7 +177,7 @@ private fun BoardReferenceContent(board:BoardDefinition,tab:Int,part:PlacedCompo
                 "\nAggregate hardware limit: ${profile.gpioTotalCurrentMa?.let { "$it mA" } ?: "see manufacturer datasheet"}"+
                 "\nEducational model: finite 50 Ω output resistance; accumulated overload damage; input overvoltage damage. Damage timing is a simulation policy, not a manufacturer guarantee."
             13 -> "Profile: ${profile.profileId}\nRevision: ${board.revision.ifBlank { board.product }}"+
-                "\nClock: ${profile.clockMhz ?: "unspecified"} MHz · flash: ${profile.flashKb ?: "unspecified"} KiB · SRAM: ${profile.sramKb ?: "unspecified"} KiB"
+                "\nClock: ${profile.clockMhz ?: "unspecified"} MHz · flash: ${profile.flashKb ?: "unspecified"} KiB · SRAM: ${profile.sramBytes?.let { it / 1024.0 } ?: profile.sramKb ?: "unspecified"} KiB"
             else -> "Arduino and MicroPython execute bounded structured subsets. Each placed board keeps its own code and pin state. "+
                 "Unsupported APIs produce diagnostics. Wi-Fi, Bluetooth, DAC, touch and PIO programs are reference-only."
         }

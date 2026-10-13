@@ -6,7 +6,7 @@ import org.json.JSONObject
 
 /** Stable, versioned document containing topology and presentation coordinates only. */
 object CircuitJson {
-    const val SCHEMA_VERSION = 5
+    const val SCHEMA_VERSION = 6
     const val MAX_DOCUMENT_CHARS = 2_000_000
     const val MAX_COMPONENTS = 512
     const val MAX_WIRES = 4096
@@ -53,6 +53,9 @@ object CircuitJson {
             put("id", w.id); put("startComponent", w.start.componentId); put("startPin", w.start.index)
             put("endComponent", w.end.componentId); put("endPin", w.end.index)
             w.label?.let { put("label",it) }
+            put("waypoints",JSONArray().apply { w.waypoints.forEach { point ->
+                put(JSONObject().put("x",point.x.toDouble()).put("y",point.y.toDouble()))
+            } })
         }) } })
     }.toString()
 
@@ -105,8 +108,18 @@ object CircuitJson {
             require(label==null || Regex("[A-Za-z][A-Za-z0-9_ -]{0,23}").matches(label)) {
                 "Invalid net label"
             }
+            val points=w.optJSONArray("waypoints")
+            require((points?.length() ?: 0)<=64) { "Too many wire waypoints" }
+            val waypoints=(0 until (points?.length() ?: 0)).map { index ->
+                val point=points!!.getJSONObject(index)
+                val x=point.getDouble("x");val y=point.getDouble("y")
+                require(x.isFinite() && y.isFinite() && kotlin.math.abs(x)<=1e6 && kotlin.math.abs(y)<=1e6) {
+                    "Invalid wire waypoint"
+                }
+                WirePoint(x.toFloat(),y.toFloat())
+            }
             Wire(w.getString("id"), TerminalRef(w.getString("startComponent"), w.getInt("startPin")),
-                TerminalRef(w.getString("endComponent"), w.getInt("endPin")),label)
+                TerminalRef(w.getString("endComponent"), w.getInt("endPin")),label,waypoints)
         }
         val ids = components.map { it.id }.toSet()
         require(ids.size==components.size) { "Duplicate component ID" }

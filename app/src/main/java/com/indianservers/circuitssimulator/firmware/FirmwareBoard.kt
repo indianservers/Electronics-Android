@@ -5,6 +5,7 @@ import com.indianservers.circuitssimulator.simulation.DcResult
 import com.indianservers.circuitssimulator.simulation.DcSolver
 import com.indianservers.circuitssimulator.simulation.embedded.*
 import com.indianservers.circuitssimulator.simulation.digital.LogicState
+import kotlin.math.roundToLong
 
 enum class FirmwareTier { SUPPORTED_SUBSET, STATIC_EXAMPLE }
 enum class BoardPowerState { OFF, BOOTING, RUNNING, RESET, FAULT }
@@ -170,7 +171,7 @@ class FirmwareBoard(circuit:Circuit,override val boardId:String):BoardRuntime {
             val voltage=when {
                 pin.name in definition.supplyPins -> definition.logicVoltage
                 pin.name in setOf("3V3","3V3_OUT") -> 3.3
-                usb && pin.name in setOf("5V","VBUS","VU") -> 5.0
+                usb && (pin.signal=="5V" || pin.name in setOf("5V","5V0","VBUS","VU")) -> 5.0
                 else -> null
             }
             voltage?.let { com.indianservers.circuitssimulator.simulation.ExternalDrive(TerminalRef(boardId,index),it,0.8) }
@@ -188,13 +189,17 @@ class FirmwareBoard(circuit:Circuit,override val boardId:String):BoardRuntime {
         val readings=mcu.observe(result,dt,sampleTime)
         latestPins=readings.mapValues { (name,reading) -> readings[definition.pin(name)?.signal] ?: reading }
     }
+    internal fun settleSharedCircuit(net:Circuit,drives:List<com.indianservers.circuitssimulator.simulation.ExternalDrive>,timeMicros:Long)=
+        digitalSession.settleDc(net,drives,timeMicros/1_000_000.0)
     fun settle(deltaMicros:Long=0,extra:List<com.indianservers.circuitssimulator.simulation.ExternalDrive> = emptyList()):McuStep {
         require(deltaMicros>=0)
         powered=checkPower() || usbDrives().isNotEmpty()
         if(!powered) { powerState=BoardPowerState.OFF;bootChecked=false }
         require(powered) {
             "${definition.product} is unpowered. Enable USB Power or connect ${definition.supplyPins.joinToString()} and GND." }
-        val sampleTime=mcu.timeSeconds+deltaMicros/1_000_000.0
+        // Firmware uses integer microseconds. Repeated double additions can get ahead of
+        // the scheduler's equivalent timestamp and falsely reverse the digital clock.
+        val sampleTime=((mcu.timeSeconds*1_000_000.0).roundToLong()+deltaMicros)/1_000_000.0
         val live=sensedCircuit()
         val net=live.copy(components=live.components.map { item ->
             if(item.id==boardId) item.copy(parameters=item.parameters.filterKeys { !it.startsWith("gpio_") }) else item })
@@ -249,11 +254,12 @@ class FirmwareBoard(circuit:Circuit,override val boardId:String):BoardRuntime {
         latestPins=readings.mapValues { (name,reading) -> readings[definition.pin(name)?.signal] ?: reading }
         return McuStep(result,latestPins,mcu.timeSeconds)
     }
-    override fun setPinMode(pin:String,mode:PinMode)=mode(pin,mode)
-    override fun digitalWrite(pin:String,high:Boolean)=write(pin,high)
-    override fun digitalRead(pin:String)=digital(pin)
-    override fun analogRead(pin:String)=analog(pin)
-    override fun pwmWrite(pin:String,value:Int,frequencyHz:Double)=pwm(pin,value,frequencyHz)
+    private fun gpioName(pin:String,analog:Boolean=false)=resolve(pin,analog).also(::requireGpio)
+    override fun setPinMode(pin:String,mode:PinMode)=mode(gpioName(pin),mode)
+    override fun digitalWrite(pin:String,high:Boolean)=write(gpioName(pin),high)
+    override fun digitalRead(pin:String)=digital(gpioName(pin))
+    override fun analogRead(pin:String)=analog(gpioName(pin,true))
+    override fun pwmWrite(pin:String,value:Int,frequencyHz:Double)=pwm(gpioName(pin),value,frequencyHz)
     override fun serialPorts():List<UartPortSpec> {
         return definition.hardware.uartPins.mapIndexed { i,pair ->
             UartPortSpec(definition.hardware.uartNames.getOrNull(i) ?: if(i==0) "Serial" else "Serial$i",pair.first,pair.second) }+

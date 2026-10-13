@@ -12,7 +12,7 @@ object ElectromechanicalParts {
         Kind.LM35_SENSOR to listOf("V+","VOUT","GND"),
         Kind.HALL_SENSOR to listOf("V+","VOUT","GND"),
         Kind.PHOTOTRANSISTOR to listOf("C","E")
-    )
+    ) + IotSensorParts.pinNames
     private fun p(key:String,label:String,unit:String,default:Double,min:Double,max:Double)=
         Parameter(key,label,unit,default,min,max)
     val definitions=listOf(

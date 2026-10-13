@@ -5,7 +5,11 @@ enum class PinType {
     RESET, ENABLE, REFERENCE, USB, BOOT, SPECIAL, RESERVED, ONBOARD
 }
 
-enum class BoardFamily { ARDUINO_AVR, ARDUINO_SAMD, RP2040, RP2350, ESP8266, ESP32, ESP32_C3 }
+enum class BoardFamily { ARDUINO_AVR, ARDUINO_SAMD, RP2040, RP2350, ESP8266, ESP32, ESP32_C3,
+    ARDUINO_SAM, ARDUINO_RENESAS, ESP32_S3, ESP32_C6, ESP32_S2 }
+
+val BoardFamily.usesArduinoPinNumbers get() = this in setOf(BoardFamily.ARDUINO_AVR,
+    BoardFamily.ARDUINO_SAMD,BoardFamily.ARDUINO_SAM,BoardFamily.ARDUINO_RENESAS)
 
 enum class BoardSupportLevel { FULL, FUNCTIONAL, SIMPLIFIED, PREVIEW }
 
@@ -48,7 +52,8 @@ data class BoardPin(
     val warnings:List<String> = emptyList(),
     val physicalLabel:String=name,val functions:Set<String> = emptySet(),
     val maxCurrentMa:Double?=null,val pwmResource:String?=null,
-    val pullUpSupported:Boolean=true,val pullDownSupported:Boolean=false
+    val pullUpSupported:Boolean=true,val pullDownSupported:Boolean=false,
+    val connector:String?=null
 )
 
 data class BoardDefinition(
@@ -113,15 +118,17 @@ data class BoardDefinition(
             val n=raw.toDouble().toInt()
             if(analog) {
                 if(family==BoardFamily.ESP8266 && n==0) return pin("A0")?.name
-                if(family!=BoardFamily.ARDUINO_AVR && family!=BoardFamily.ARDUINO_SAMD)
+                if(!family.usesArduinoPinNumbers)
                     return pins.firstOrNull { it.gpioNumber==n && PinCapability.ANALOG_INPUT in it.capabilities }?.name
                 pin("A$n")?.let { return it.name }
+                pins.firstOrNull { "A$n" in it.aliases && PinCapability.ANALOG_INPUT in it.capabilities }?.let { return it.name }
                 pins.firstOrNull { it.adcChannel==n }?.let { return it.name }
                 pins.firstOrNull { it.gpioNumber==n && PinCapability.ANALOG_INPUT in it.capabilities }?.let { return it.name }
             }
             if(ledBuiltin!=null && n.toString() in setOf(ledBuiltin, pin(ledBuiltin)?.gpioNumber?.toString()))
                 return ledBuiltin
             pins.firstOrNull { it.gpioNumber==n }?.let { return it.name }
+            pins.firstOrNull { n.toString() in it.aliases }?.let { return it.name }
             pin("D$n")?.let { return it.name }
             pin("GP$n")?.let { return it.name }
             pin("IO$n")?.let { return it.name }

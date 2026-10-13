@@ -293,8 +293,12 @@ void loop() {
 
     fun starter(kind:Kind,circuitName:String,language:FirmwareLanguage=FirmwareLanguage.ARDUINO_SUBSET):String {
         val definition=BoardRegistry.boards.getValue(kind)
-        val output=definition.ledBuiltin ?: when(kind) { Kind.ESP32_DEVKIT -> "IO25";Kind.ESP32_C3_DEVKIT -> "IO4";else -> "D13" }
-        val sketchPin=if(definition.ledBuiltin!=null) "LED_BUILTIN" else output
+        val output=definition.ledBuiltin ?: when(kind) {
+            Kind.ESP32_DEVKIT -> "IO25"
+            Kind.ESP32_C3_DEVKIT,Kind.ESP32_S3_DEVKIT,Kind.ESP32_C6_DEVKIT,Kind.ESP32_S2_SAOLA -> "IO4"
+            else -> definition.pins.first { PinCapability.DIGITAL_OUTPUT in it.capabilities }.name
+        }
+        val sketchPin=if(definition.ledBuiltin!=null) "LED_BUILTIN" else definition.pin(output)!!.gpioNumber.toString()
         if(language==FirmwareLanguage.MICROPYTHON_SUBSET) return """from machine import Pin
             |from time import sleep_ms
             |# ${definition.product}: ${if(definition.ledBuiltin==null) "connect an external LED and resistor to $output" else "mapped onboard LED"}

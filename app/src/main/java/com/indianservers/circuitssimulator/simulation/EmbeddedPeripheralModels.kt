@@ -12,7 +12,8 @@ internal fun stampPhaseFive(p:PlacedComponent,indices:IntArray,guess:DoubleArray
         Kind.SERIAL_TERMINAL -> {
             branch(0,2,1e-9);branch(1,2,1e-9)
         }
-        Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM -> {
+        Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM,
+        Kind.L3GD20_GYRO,Kind.LSM6DSOX_IMU,Kind.LIS3DH_ACCEL,Kind.ADXL345_ACCEL -> {
             branch(0,1,1.0/8000.0)
             branch(2,1,1e-9);branch(3,1,1e-9)
             com.indianservers.circuitssimulator.firmware.EmbeddedProfiles.profiles[p.kind]?.electrical?.modulePullupOhms?.let { r ->
@@ -42,7 +43,8 @@ internal fun phaseFiveReading(p:PlacedComponent,volts:Map<TerminalRef,Double>):R
         else -> v(0)-v(1)
     }
     val current=when(p.kind) {
-        Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM -> drop/8000.0
+        Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM,
+        Kind.L3GD20_GYRO,Kind.LSM6DSOX_IMU,Kind.LIS3DH_ACCEL,Kind.ADXL345_ACCEL -> drop/8000.0
         Kind.ULTRASONIC -> drop/15000.0
         Kind.PIR_SENSOR -> drop/20000.0
         Kind.SPI_MEMORY -> drop/10000.0

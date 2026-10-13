@@ -12,11 +12,13 @@ class I2cDeviceModel(var address:Int,override val ownerId:String,val kind:Kind,
     var writeProtected=false
     val oled=OledController()
     val lcd=LcdBackpack()
+    val motion=if(kind in MotionSensorParts.profiles) MotionSensorModel(kind) else null
     private var temperatureWord=25 shl 8
     override fun powerChanged(powered:Boolean,timeMicros:Long) {
         if(this.powered && !powered) {
             pointer=0;busyUntil=0;display.clear();oled.reset();lcd.reset()
             if(kind!=Kind.I2C_EEPROM) memory.clear()
+            motion?.reset()
         }
         if(!this.powered && powered && kind==Kind.I2C_TEMP_SENSOR) {
             memory[1]=0;memory[2]=75 shl 8;memory[3]=80 shl 8
@@ -25,6 +27,7 @@ class I2cDeviceModel(var address:Int,override val ownerId:String,val kind:Kind,
     }
     fun ready(time:Long)=time>=busyUntil
     fun write(bytes:List<Int>,timeMicros:Long=0):Boolean {
+        motion?.let { return powered && it.write(bytes) }
         if(!ready(timeMicros)) return false
         if(bytes.isEmpty()) return true
         when(kind) {
@@ -48,6 +51,7 @@ class I2cDeviceModel(var address:Int,override val ownerId:String,val kind:Kind,
         return true
     }
     fun read(count:Int,environment:EnvironmentState,timeMicros:Long=0):List<Int> {
+        motion?.let { return if(powered) it.read(count) else emptyList() }
         if(!ready(timeMicros)) return emptyList()
         return when(kind) {
             Kind.I2C_TEMP_SENSOR -> {
@@ -65,7 +69,7 @@ class I2cDeviceModel(var address:Int,override val ownerId:String,val kind:Kind,
         "Power" to powered.toString(),"Pointer" to "0x${pointer.toString(16)}","Busy" to (!ready(timeMicros)).toString(),
         "Registers / memory" to memory.toSortedMap().entries.take(64).joinToString { "${it.key.toString(16)}=${it.value.toString(16)}" })+
         when(kind) { Kind.OLED_SSD1306 -> mapOf("Display on" to oled.on.toString(),"RAM bytes" to oled.ram.count { it!=0 }.toString())
-            Kind.I2C_LCD -> mapOf("DDRAM" to lcd.text());else -> emptyMap() }
+            Kind.I2C_LCD -> mapOf("DDRAM" to lcd.text());else -> emptyMap() } + (motion?.inspect() ?: emptyMap())
 }
 
 /** GDDRAM pages are bytes of eight vertical pixels. No text/string inference. */

@@ -20,8 +20,8 @@ class BoardPlatformTest {
         assertTrue(ComponentRegistry.search("I2C").any { it.kind==Kind.ESP32_DEVKIT })
     }
 
-    @Test fun sevenBoardsHaveRealPinCapabilities() {
-        assertEquals(11,BoardRegistry.boards.size)
+    @Test fun allBoardsHaveRealPinCapabilities() {
+        assertEquals(19,BoardRegistry.boards.size)
         for(board in BoardRegistry.boards.values) {
             assertTrue(board.pins.size>=16)
             assertTrue(board.pins.any { PinCapability.GROUND in it.capabilities })

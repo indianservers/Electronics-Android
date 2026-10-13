@@ -73,6 +73,7 @@ internal fun routedWirePoints(wire:Wire,parts:Map<String,PlacedComponent>,angles
     val bAngle=angles[last.id] ?: last.rotation.toFloat()
     val a=terminalPosition(first,wire.start.index,aAngle)
     val b=terminalPosition(last,wire.end.index,bAngle)
+    if(wire.waypoints.isNotEmpty()) return listOf(a)+wire.waypoints.map { Offset(it.x,it.y) }+b
     val aOut=a+pinDirection(first,wire.start.index,aAngle)*29f
     val bOut=b+pinDirection(last,wire.end.index,bAngle)*29f
     val top=minOf(aOut.y,bOut.y,parts.values.minOfOrNull { it.y-95f*it.sizeScale } ?: 0f)-30f
@@ -248,8 +249,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
     fun hitTerminal(point: Offset): TerminalRef? {
         return state.circuit.components.flatMap { p ->
             (0 until p.terminalCount).mapNotNull { pin ->
-                if(p.kind.isBoard && BoardRegistry.boards.getValue(p.kind).pins.getOrNull(pin)?.connectable==false)
-                    return@mapNotNull null
+                if(!ComponentPins.canConnect(p,pin)) return@mapNotNull null
                 val t=terminalPosition(p,pin,latestAngles[p.id] ?: p.rotation.toFloat())
                 val screen=viewport.pixel(t)
                 val distance=(screen-point).getDistance().toDouble()
@@ -304,37 +304,43 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                 if (!active) pinching=false
             }
         }
-    }.pointerInput(state.circuit, state.placement, state.selectedId, viewport, interactionMode) {
+    }.pointerInput(state.circuit, state.placement, state.selectedId, state.multiSelect, state.selection, viewport, interactionMode) {
         detectTapGestures(onLongPress={ point ->
             if(interactionMode==CanvasInteractionMode.VIEW || pinchOccurred || hitTerminal(point)!=null) return@detectTapGestures
             hitComponent(point)?.let { model.showContext(it.id);haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
         },onTap = { point ->
             if(pinchOccurred) return@detectTapGestures
+            if(state.multiSelect) {
+                hitComponent(point)?.let { model.select(it.id) }
+                return@detectTapGestures
+            }
             if(interactionMode==CanvasInteractionMode.VIEW) {
                 hitTerminal(point)?.let(model::describeBoardPin)
                 return@detectTapGestures
             }
             if (state.placement != null) {
                 val w=viewport.world(point)
-                model.place((w.x/10f).toInt()*10f,(w.y/10f).toInt()*10f)
+                model.place(w.x,w.y)
             } else {
                 val pin=if(interactionMode==CanvasInteractionMode.CONNECT) hitTerminal(point) else null
-                val start=pendingTerminal
+                val start=state.connectionStart ?: pendingTerminal
                 when {
                     pin!=null && start==null -> { pendingTerminal=pin;model.describeBoardPin(pin);haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
-                    pin!=null && pin==start -> pendingTerminal=null
+                    pin!=null && pin==start -> { pendingTerminal=null;model.cancelConnection() }
                     pin!=null && start!=null -> {
-                        if(pin.componentId!=start.componentId) model.connect(start,pin)
+                        model.connect(start,pin)
                         pendingTerminal=null
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     }
                     start!=null && hitWire(point)!=null -> {
                         val w=viewport.world(point)
                         model.connectToJunction(start,w.x,w.y,hitWire(point)?.id)
+                        model.cancelConnection()
                         pendingTerminal=null
                     }
                     else -> {
                         pendingTerminal=null
+                        model.cancelConnection()
                         val hit=hitComponent(point)
                         if (hit?.kind in setOf(Kind.SWITCH,Kind.PUSH_BUTTON,Kind.NC_PUSH_BUTTON,Kind.SPDT_SWITCH)) {
                             model.toggleSwitch(hit!!.id);haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -352,12 +358,12 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                 }
             }
         })
-    }.pointerInput(state.circuit, state.placement, viewport, interactionMode) {
+    }.pointerInput(state.circuit, state.placement, state.multiSelect, state.selection, viewport, interactionMode) {
         detectDragGestures(onDragStart = { point ->
             if(pinchOccurred || interactionMode==CanvasInteractionMode.VIEW) return@detectDragGestures
             if(state.placement!=null) placementPreview=gestureOrigin
             else {
-                val terminal=if(interactionMode==CanvasInteractionMode.CONNECT) hitTerminal(gestureOrigin) else null
+                val terminal=if(!state.multiSelect && interactionMode==CanvasInteractionMode.CONNECT) hitTerminal(gestureOrigin) else null
                 if (terminal != null) { pendingTerminal=null;wireStart=terminal; wireEnd=point }
                 else if(interactionMode==CanvasInteractionMode.MOVE_PARTS) dragging=hitComponent(gestureOrigin)?.id
             }
@@ -378,7 +384,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
             if (pinching || pinchOccurred) { wireStart=null; wireEnd=null; wireHover=null; dragging=null; dragDelta=Offset.Zero; placementPreview=null; return@detectDragGestures }
             if(placementPreview!=null && state.placement!=null) {
                 val world=viewport.world(placementPreview!!)
-                model.place((world.x/10f).toInt()*10f,(world.y/10f).toInt()*10f)
+                model.place(world.x,world.y)
             } else if (start != null) {
                 val target=wireHover ?: wireEnd?.let(::hitTerminal)
                 if (target != null) { model.connect(start,target);haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
@@ -391,7 +397,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                 val p=state.circuit.components.firstOrNull { it.id==dragging }
                 if (p != null) {
                     val dx=dragDelta.x/viewport.scale; val dy=dragDelta.y/viewport.scale
-                    model.move(p.id,((p.x+dx)/10f).toInt()*10f,((p.y+dy)/10f).toInt()*10f)
+                    model.move(p.id,p.x+dx,p.y+dy)
                 }
             }
             wireStart=null; wireEnd=null; wireHover=null; dragging=null; dragDelta=Offset.Zero; placementPreview=null
@@ -401,7 +407,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
         canvasSize=size
         val renderViewport=viewport
         drawRect(Color(0xFF071522))
-        gridCache.draw(drawContext.canvas.nativeCanvas,renderViewport,size)
+        gridCache.draw(drawContext.canvas.nativeCanvas,renderViewport,size,state.gridSpacing)
         withTransform({ translate(renderViewport.origin.x,renderViewport.origin.y); scale(renderViewport.scale,renderViewport.scale,Offset.Zero) }) {
             val lookup=state.circuit.components.associate { original ->
                 original.id to if(original.id==dragging) original.copy(
@@ -530,7 +536,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                         if(drop>threshold) mask or (1 shl pin) else mask
                     }
                 } else 0
-                drawComponent(p,p.id==state.selectedId || p.id in state.highlightedParts,
+                drawComponent(p,p.id==state.selectedId || p.id in state.selection || p.id in state.highlightedParts,
                     if(p.kind in setOf(Kind.LED,Kind.RED_LED,Kind.GREEN_LED,Kind.BLUE_LED,Kind.LAMP)) visual.brightness else intensity,
                     animatedAngles[p.id] ?: p.rotation.toFloat(),connectedPins[p.id].orEmpty().map { it.index }.toSet(),
                     activeMask,visual,details=renderViewport.scale*p.sizeScale>=.6f)
@@ -618,7 +624,7 @@ fun CircuitCanvas(state: SimulatorState, model: SimulatorViewModel, modifier: Mo
                     }
                 }
             }
-            pendingTerminal?.let { ref ->
+            (state.connectionStart ?: pendingTerminal)?.let { ref ->
                 lookup[ref.componentId]?.let { part ->
                     val position=terminalPosition(part,ref.index,animatedAngles[part.id] ?: part.rotation.toFloat())
                     drawCircle(Mint.copy(alpha=.24f),31f,position)
@@ -641,15 +647,17 @@ private fun componentVisible(p:PlacedComponent,view:Viewport,size:Size):Boolean 
 /** Grid geometry changes only when the viewport changes, not on every rotor frame. */
 private class CircuitGridCache {
     private var key:Triple<Offset,Float,Size>?=null
+    private var spacingKey=0f
     private var dots=FloatArray(0)
     private val paint=android.graphics.Paint(3).apply {
         color=0x9E234867.toInt();strokeWidth=2.3f;strokeCap=android.graphics.Paint.Cap.ROUND
     }
-    fun draw(canvas:android.graphics.Canvas,view:Viewport,size:Size) {
+    fun draw(canvas:android.graphics.Canvas,view:Viewport,size:Size,spacing:Float) {
         val next=Triple(view.origin,view.scale,size)
-        if(next!=key) {
+        if(next!=key || spacing!=spacingKey) {
             key=next
-            val step=32f*view.scale
+            spacingKey=spacing
+            val step=spacing*view.scale
             dots=if(step<=8f) FloatArray(0) else buildList<Float> {
                 var x=view.origin.x%step
                 while(x<size.width) {

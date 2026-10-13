@@ -52,8 +52,7 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
         i2cTx=null;i2cRx.clear();servoPins.clear();pulseWait=null
         interrupts.clear()
         interruptedWakeAt=null
-        fabric.uart.entries.removeAll { it.value.ownerId==board.boardId }
-        fabric.i2cRoutes.remove(board.boardId)
+        fabric.resetController(board.boardId)
         enqueue(program.setup)
     }
     fun stop() {
@@ -570,6 +569,27 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
             }
             if(interruptedWakeAt!=null && wakeAt==timeMicros) return
         }
+    }
+    internal val isStopped get()=stopped
+    internal fun nextSchedulerEvent(limit:Long):Long = if(stopped) limit else
+        minOf(if(wakeAt>timeMicros) wakeAt else limit,nextPwmEdge(limit))
+
+    /** Move the electrical clock without executing future firmware ahead of peer MCUs. */
+    internal fun advanceElectricalTo(target:Long):FirmwareAdvance {
+        require(target>=timeMicros)
+        val frames=mutableListOf<FirmwareFrame>()
+        var diagnostic:FirmwareDiagnostic?=null
+        try {
+            if(stopped) {
+                timeMicros=target;board.synchronizeClock(target)
+            } else {
+                advanceElectrical(target,frames)
+                if(frames.isEmpty()) frames+=capture()
+            }
+        } catch(e:Exception) {
+            stopped=true;diagnostic=FirmwareDiagnostic(currentLine,e.message ?: "Firmware electrical step failed")
+        }
+        return FirmwareAdvance(frames,consoleLines(),diagnostic,timeMicros,currentLine,variables())
     }
     fun advance(deltaMicros:Long):FirmwareAdvance {
         require(deltaMicros in 0..10_000_000) { "Advance interval must be 0–10 seconds." }

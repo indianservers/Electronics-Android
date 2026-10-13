@@ -37,7 +37,7 @@ class AcSolver {
         Kind.SOLENOID,Kind.DIP_SWITCH_4,Kind.DPDT_RELAY,Kind.REED_SWITCH,
         Kind.LM35_SENSOR,Kind.HALL_SENSOR,Kind.PHOTOTRANSISTOR,
         Kind.SERIAL_TERMINAL,Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM,
-        Kind.ULTRASONIC,Kind.PIR_SENSOR,Kind.SPI_MEMORY)
+        Kind.ULTRASONIC,Kind.PIR_SENSOR,Kind.SPI_MEMORY) + IotSensorParts.profiles.keys + MotionSensorParts.profiles.keys
     private fun bias(circuit:Circuit):DcResult? = if(circuit.components.any {
         isOpAmp(it) || it.kind in setOf(Kind.LED,Kind.DIODE,Kind.RECTIFIER,Kind.ZENER,
             Kind.RGB_LED,Kind.SEVEN_SEGMENT,Kind.RELAY)

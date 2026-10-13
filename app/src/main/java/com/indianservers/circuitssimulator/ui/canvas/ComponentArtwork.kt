@@ -133,47 +133,7 @@ fun localTerminalOffset(p: PlacedComponent, pin: Int): Offset {
     return unscaled*p.sizeScale
 }
 
-fun terminalName(p: PlacedComponent, pin: Int): String = when {
-    p.kind.isBoard -> BoardRegistry.boards.getValue(p.kind).pins[pin].name
-    else -> terminalNameStandard(p,pin)
-}
-
-private fun terminalNameStandard(p:PlacedComponent,pin:Int):String = when(p.kind) {
-    in DigitalParts.pinNames.keys -> DigitalParts.pinNames.getValue(p.kind)[pin]
-    in ElectromechanicalParts.pinNames.keys -> ElectromechanicalParts.pinNames.getValue(p.kind)[pin]
-    in SemiconductorSwitchParts.pinNames.keys -> SemiconductorSwitchParts.pinNames.getValue(p.kind)[pin]
-    in IcParts.pinNames.keys -> IcParts.pinNames.getValue(p.kind)[pin]
-    in PhaseFiveParts.pinNames.keys -> PhaseFiveParts.pinNames.getValue(p.kind)[pin]
-    Kind.BATTERY,Kind.SOURCE,Kind.FUNCTION_GENERATOR,Kind.ELECTROLYTIC,Kind.LED,
-    Kind.RED_LED,Kind.GREEN_LED,Kind.BLUE_LED,Kind.SINGLE_CELL,Kind.BATTERY_PACK,
-    Kind.VARIABLE_DC_SUPPLY,Kind.AC_VOLTAGE_SOURCE,Kind.SINE_GENERATOR,
-    Kind.SQUARE_GENERATOR,Kind.PULSE_GENERATOR,Kind.DC_CURRENT_SOURCE -> if(pin==0) "+" else "−"
-    Kind.DIODE,Kind.RECTIFIER,Kind.SCHOTTKY_DIODE,Kind.PHOTODIODE -> if(pin==0) "A" else "K"
-    Kind.ZENER -> if(pin==0) "A" else "K"
-    Kind.VCCS,Kind.VCVS,Kind.CCCS,Kind.CCVS -> listOf("C+","C−","O+","O−")[pin]
-    Kind.TRANSFORMER -> listOf("P+","P−","S+","S−")[pin]
-    Kind.RELAY -> listOf("C+","C−","COM","NO","NC")[pin]
-    Kind.RGB_LED -> listOf("R","G","B","K")[pin]
-    Kind.SPDT_SWITCH -> listOf("COM","A","B")[pin]
-    Kind.TIMER_555 -> listOf("RESET","GND","OUT")[pin]
-    Kind.D_FLIP_FLOP -> listOf("D","CLK","Q")[pin]
-    Kind.T_FLIP_FLOP -> listOf("T","CLK","Q")[pin]
-    Kind.COUNTER_4 -> listOf("CLK","Q0","Q1","Q2","Q3")[pin]
-    Kind.ADC_2 -> listOf("VIN","GND","D0","D1")[pin]
-    Kind.DAC_2 -> listOf("D0","D1","OUT","GND")[pin]
-    Kind.SEVEN_SEGMENT -> listOf("A","B","C","D","E","F","G","K")[pin]
-    Kind.NPN_BJT,Kind.PNP_BJT -> listOf("C","B","E")[pin]
-    Kind.NMOS,Kind.PMOS -> listOf("D","G","S")[pin]
-    Kind.OPAMP,Kind.IDEAL_OPAMP -> listOf("+","−","OUT")[pin]
-    Kind.POTENTIOMETER -> listOf("A","W","B")[pin]
-    Kind.CLOCK -> "OUT"
-    Kind.NOT_GATE -> if(pin==0) "IN" else "OUT"
-    Kind.AND_GATE,Kind.OR_GATE,Kind.NAND_GATE,Kind.NOR_GATE,Kind.XOR_GATE,Kind.XNOR_GATE ->
-        listOf("A","B","OUT")[pin]
-    Kind.GROUND -> "GND"
-    Kind.JUNCTION -> ""
-    else -> "${pin+1}"
-}
+fun terminalName(p: PlacedComponent, pin: Int): String = com.indianservers.circuitssimulator.domain.ComponentPins.name(p,pin)
 
 fun terminalPosition(p: PlacedComponent, pin: Int, rotationDegrees:Float = p.rotation.toFloat()): Offset {
     val local = localTerminalOffset(p,pin)

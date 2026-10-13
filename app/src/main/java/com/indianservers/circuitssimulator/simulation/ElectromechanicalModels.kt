@@ -11,6 +11,18 @@ internal fun stampElectromechanical(p:PlacedComponent,indices:IntArray,guess:Dou
         stampBranch(matrix,rhs,indices[a],indices[b],BranchModel(g,ieq))
     fun drive(out:Int,ground:Int,voltage:Double,resistance:Double) =
         branch(out,ground,1.0/resistance,-voltage/resistance)
+    IotSensorParts.profiles[p.kind]?.let { profile ->
+        val supply=v(profile.supplyPin)-v(profile.groundPin)
+        val output=iotSensorOutputVoltage(p,supply)
+        if(output!=null) {
+            branch(profile.supplyPin,profile.groundPin,0.0,profile.current)
+            drive(profile.outputPin,profile.groundPin,output,1.0)
+        } else {
+            branch(profile.supplyPin,profile.groundPin,1e-9)
+            branch(profile.outputPin,profile.groundPin,1e-9)
+        }
+        return
+    }
     when(p.kind) {
         Kind.BUZZER -> {
             val model=ledBranchAt(v(0)-v(1),p.value("startVoltage"),p.value("resistance"))
@@ -68,6 +80,12 @@ internal fun stampElectromechanical(p:PlacedComponent,indices:IntArray,guess:Dou
 internal fun electromechanicalReading(p:PlacedComponent,volts:Map<TerminalRef,Double>,
     dt:Double?=null,priorCoilCurrent:Double=0.0):Reading {
     fun v(pin:Int)=volts[TerminalRef(p.id,pin)] ?: 0.0
+    IotSensorParts.profiles[p.kind]?.let { profile ->
+        val supply=v(profile.supplyPin)-v(profile.groundPin)
+        val output=iotSensorOutputVoltage(p,supply)
+        val current=if(output!=null) profile.current else supply*1e-9
+        return Reading(supply,current,abs(supply*current))
+    }
     val drop=v(0)-v(1)
     val current=when(p.kind) {
         Kind.BUZZER -> ledBranchAt(drop,p.value("startVoltage"),p.value("resistance")).current(drop)

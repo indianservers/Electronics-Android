@@ -17,7 +17,8 @@ class PhaseOneAdvancedTest {
                 it.copy(parameters=it.parameters+("field" to 1.0))
                 else if(kind==Kind.DIP_SWITCH_4) it.copy(parameters=it.parameters+("switch1" to 1.0))
                 else it }
-            val supply=p(Kind.SOURCE,"V1").copy(parameters=mapOf("voltage" to 5.0))
+            val supply=p(Kind.SOURCE,"V1").copy(parameters=mapOf("voltage" to
+                if(kind==Kind.AD22103_SENSOR) 3.3 else 5.0))
             val control=p(Kind.SOURCE,"V2").copy(parameters=mapOf("voltage" to 3.3))
             val ground=p(Kind.GROUND,"G1")
             val load=p(Kind.RESISTOR,"R1").copy(parameters=mapOf("resistance" to 1000.0))
@@ -26,6 +27,11 @@ class PhaseOneAdvancedTest {
             val usesLoad=kind !in setOf(Kind.BUZZER,Kind.SPEAKER,Kind.SOLENOID,Kind.SERVO_MOTOR)
             if(usesControl) wires+=w(control,1,ground,0)
             when(kind) {
+                in IotSensorParts.profiles.keys -> {
+                    val profile=IotSensorParts.profiles.getValue(kind)
+                    wires+=listOf(w(supply,0,part,profile.supplyPin),w(part,profile.groundPin,ground,0),
+                        w(part,profile.outputPin,load,0),w(load,1,ground,0))
+                }
                 Kind.BUZZER,Kind.SPEAKER,Kind.SOLENOID -> wires+=listOf(
                     w(supply,0,part,0),w(part,1,ground,0))
                 Kind.SERVO_MOTOR -> wires+=listOf(w(supply,0,part,0),w(part,1,ground,0),

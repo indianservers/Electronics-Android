@@ -10,6 +10,14 @@ class BusWaveforms {
     private var count=0
     var endTime=0L;private set
     fun clear() { history.clear();endTime=0;count=0 }
+    fun clearController(id:String) {
+        val prefixes=listOf("I2C:$id:","SPI:$id:")
+        history.keys.filter { key -> key=="UART:$id" || key.startsWith("UART:$id:") ||
+            prefixes.any { key.startsWith(it) } }.forEach { history.remove(it) }
+        count=history.values.sumOf { it.size }
+        endTime=history.values.mapNotNull { it.lastKeyOrNull() }.maxOrNull() ?: 0L
+    }
+    private fun TreeMap<Long,ExternalDrive?>.lastKeyOrNull()=if(isEmpty()) null else lastKey()
     fun add(time:Long,key:String,pin:TerminalRef,voltage:Double?,resistance:Double=100.0) {
         val events=history.getOrPut(key){TreeMap()}
         // Sessions may sample the shared slice in a different order; retain recent edge history.

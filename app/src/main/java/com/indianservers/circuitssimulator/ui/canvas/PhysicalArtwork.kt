@@ -229,6 +229,15 @@ fun DrawScope.drawPhysicalBody(p:PlacedComponent,v:ComponentVisualState,details:
                 drawPath(track,Color(0xFF976748),style=Stroke(3f))
             } else if(details) print(if(p.kind==Kind.THERMISTOR) "NTC" else "PTC",font=10f)
         }
+        Kind.HIH4030_SENSOR -> {
+            leads(p,26f,35f)
+            body(Color(0xFFCEBEA6),-26f,-35f,52f,70f,3f)
+            drawCircle(darkMetal,12f,Offset(0f,-10f))
+            drawCircle(plastic,5f,Offset(0f,16f))
+            if(details) print("HIH-4030",y=4f,font=8f)
+        }
+        Kind.TMP35_SENSOR,Kind.TMP36_SENSOR,Kind.TMP37_SENSOR,
+        Kind.MCP9700_SENSOR,Kind.MCP9701_SENSOR,Kind.AD22100_SENSOR,Kind.AD22103_SENSOR,
         Kind.NPN_BJT,Kind.PNP_BJT,Kind.NMOS,Kind.PMOS,Kind.DARLINGTON,Kind.SCR,Kind.TRIAC,
         Kind.REGULATOR_7805,Kind.REGULATOR_LM317,Kind.LM35_SENSOR,Kind.HALL_SENSOR,Kind.PHOTOTRANSISTOR -> {
             leads(p,27f,26f)
@@ -280,6 +289,15 @@ fun DrawScope.drawPhysicalBody(p:PlacedComponent,v:ComponentVisualState,details:
             for(r in listOf(9f,18f,26f)) drawCircle(Color(0xFFBBC5BE),r,style=Stroke(1f),center=Offset.Zero)
             repeat(12) { rotate(it*30f,Offset.Zero) { drawLine(Color(0xFFBBC5BE),Offset(0f,-6f),Offset(0f,-26f),1f) } }
             if(v.brightness>.1f) drawCircle(Mint,3f,Offset(27f,24f))
+        }
+        in MotionSensorParts.profiles -> {
+            leads(p,34f,26f);body(Color(0xFF14665B),-38f,-30f,76f,60f)
+            body(plastic,-12f,-12f,24f,24f,2f)
+            drawCircle(metal,2f,Offset(-7f,-7f))
+            drawLine(Color(0xFFFF9966),Offset(17f,8f),Offset(29f,8f),2f)
+            drawLine(Mint,Offset(17f,8f),Offset(17f,-5f),2f)
+            drawCircle(Blue,2f,Offset(17f,8f))
+            if(details) print(MotionSensorParts.profiles.getValue(p.kind).part,y=24f,font=7f)
         }
         Kind.I2C_TEMP_SENSOR -> {
             leads(p,34f,26f);body(Color(0xFF18617A),-38f,-30f,76f,60f)
@@ -342,9 +360,11 @@ private fun DrawScope.board(p:PlacedComponent,details:Boolean,v:ComponentVisualS
     val w=b.boardWidth/2f;val h=b.boardHeight/2f
     body(Color(b.pcbColor),-w,-h,w*2,h*2,7f)
     // Surface features vary by board family; pin pads always use registry coordinates.
-    val wide=p.kind in setOf(Kind.ARDUINO_UNO,Kind.ARDUINO_MEGA)
+    val wide=p.kind in setOf(Kind.ARDUINO_UNO,Kind.ARDUINO_MEGA,Kind.ARDUINO_LEONARDO,
+        Kind.ARDUINO_DUE,Kind.ARDUINO_UNO_R4_MINIMA)
     val pico=b.family==BoardFamily.RP2040 || b.family==BoardFamily.RP2350
-    val esp=b.family in setOf(BoardFamily.ESP8266,BoardFamily.ESP32,BoardFamily.ESP32_C3)
+    val esp=b.family in setOf(BoardFamily.ESP8266,BoardFamily.ESP32,BoardFamily.ESP32_C3,
+        BoardFamily.ESP32_S3,BoardFamily.ESP32_C6,BoardFamily.ESP32_S2)
     val usbX=if(wide) -w+27f else 0f
     body(metal,usbX-19f,-h-2f,38f,23f,2f)
     body(plastic,usbX-14f,-h+1f,28f,5f,1f)
@@ -370,7 +390,7 @@ private fun DrawScope.board(p:PlacedComponent,details:Boolean,v:ComponentVisualS
     } else {
         body(plastic,-22f,-16f,44f,44f,2f)
         if(b.capabilities.wifi.hardware && !pico) body(metal,-21f,-h+49f,42f,32f,2f)
-        if(pico && p.kind==Kind.RASPBERRY_PICO_W) body(metal,-25f,34f,50f,36f,2f)
+        if(pico && b.capabilities.wifi.hardware) body(metal,-25f,34f,50f,36f,2f)
         else body(metal,-13f,36f,26f,10f,2f)
         body(plastic,-w+18f,-h+29f,20f,14f,2f)
     }

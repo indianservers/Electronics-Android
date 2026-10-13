@@ -14,6 +14,9 @@ object DenseLinearSolver {
             val row=a[col];a[col]=a[pivot];a[pivot]=row
             val value=b[col];b[col]=b[pivot];b[pivot]=value
             for(r in col+1 until n) {
+                // Unconnected MCU pins leave many exact zeros. Eliminating those rows
+                // performs no work and dominates repeated multi-board circuit solves.
+                if(a[r][col]==0.0) continue
                 val factor=a[r][col]/a[col][col]
                 for(c in col until n) a[r][c]-=factor*a[col][c]
                 b[r]-=factor*b[col]

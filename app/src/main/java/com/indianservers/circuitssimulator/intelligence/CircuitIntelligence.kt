@@ -84,7 +84,8 @@ private object ConnectivityRule:DiagnosticRule {
             Kind.RELAY,Kind.SERVO_MOTOR,Kind.LM35_SENSOR,Kind.HALL_SENSOR) }.forEach { part ->
             val needed=when(part.kind) {
                 Kind.RELAY,Kind.DC_MOTOR,Kind.LED,Kind.RESISTOR,Kind.LAMP -> listOf(0,1)
-                Kind.SERVO_MOTOR,Kind.LM35_SENSOR,Kind.HALL_SENSOR -> listOf(0,2)
+                Kind.SERVO_MOTOR -> listOf(0,1)
+                Kind.LM35_SENSOR,Kind.HALL_SENSOR -> listOf(0,2)
                 else -> emptyList()
             }
             val absent=needed.filter { facts.pin(part,it) !in facts.connectedPins }
@@ -234,7 +235,7 @@ private object StressRule:DiagnosticRule {
 /** Registry order is explicit; root causes are sorted and downstream solver noise is suppressed. */
 object DiagnosticRuleRegistry {
     val rules:List<DiagnosticRule> = listOf(FoundationalRule,StressRule,LedRule,ConnectivityRule,
-        BoardCompatibilityRule,MeasurementRule,LogicRule,FirmwareDiagnostics)
+        BoardCompatibilityRule,MeasurementRule,LogicRule,FirmwareDiagnostics,CanvasIntelligence)
     val count get()=rules.size
 }
 

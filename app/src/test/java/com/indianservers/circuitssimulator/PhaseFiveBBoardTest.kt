@@ -19,8 +19,8 @@ class PhaseFiveBBoardTest {
     private fun wire(a:PlacedComponent,ap:Int,b:PlacedComponent,bp:Int)=
         Wire(start=TerminalRef(a.id,ap),end=TerminalRef(b.id,bp))
 
-    @Test fun elevenBoardsAreDistinctAndSearchable() {
-        assertEquals(11,BoardRegistry.boards.size)
+    @Test fun nineteenBoardsAreDistinctAndSearchable() {
+        assertEquals(19,BoardRegistry.boards.size)
         assertEquals(Kind.entries.filter { it.isBoard }.toSet(),BoardRegistry.boards.keys)
         assertTrue(ComponentRegistry.search("ATmega328").any { it.kind==Kind.ARDUINO_UNO })
         assertTrue(ComponentRegistry.search("WiFi").any { it.kind==Kind.ESP32_DEVKIT })

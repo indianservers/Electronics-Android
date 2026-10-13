@@ -38,5 +38,7 @@ object EmbeddedProfiles {
             "https://www.sparkfun.com/products/15569",null,0,"Acoustic propagation is reduced to distance-dependent echo timing."),
         Kind.PIR_SENSOR to profile("HC-SR501",PeripheralInterface.GPIO,4.5..12.0,"Generic module family",
             "https://www.mpja.com/download/31227sc.pdf",null,0,"Warm-up and retrigger are modeled; field geometry and thermal noise omitted.")
-    )
+    ) + MotionSensorParts.profiles.mapValues { (_,sensor) -> PeripheralProfile(sensor.part,
+        setOf(PeripheralInterface.I2C,PeripheralInterface.POWER),ElectricalProfile(sensor.minimumSupply..3.6,3.6),
+        MotionSensorParts.metadata(sensor),MotionSensorParts.limitations) }
 }

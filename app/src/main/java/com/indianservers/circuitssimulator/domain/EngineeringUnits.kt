@@ -1,6 +1,7 @@
 package com.indianservers.circuitssimulator.domain
 
 import java.util.Locale
+import java.math.BigDecimal
 import kotlin.math.abs
 
 object EngineeringUnits {
@@ -21,11 +22,47 @@ object EngineeringUnits {
         return String.format(Locale.US, "%.3g %s%s", value / scale.first, scale.second, unit)
     }
     fun parse(text: String): Double? {
-        val match = Regex("^\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*([pnuµmkM]?)\\s*[A-Za-zΩ%°]*\\s*$").matchEntire(text) ?: return null
-        val scale = when (match.groupValues[2]) {
-            "p" -> 1e-12; "n" -> 1e-9; "u", "µ" -> 1e-6; "m" -> 1e-3
-            "k" -> 1e3; "M" -> 1e6; else -> 1.0
+        val (value,suffix)=numberAndSuffix(text) ?: return null
+        if(suffix.isNotEmpty() && !Regex("[A-Za-zΩ%°µμ²³·/ -]+").matches(suffix)) return null
+        val scale=prefixes[suffix.take(1)] ?: 1.0
+        return (value*scale).takeIf { it.isFinite() }
+    }
+
+    private val prefixes=mapOf("p" to 1e-12,"n" to 1e-9,"u" to 1e-6,"µ" to 1e-6,
+        "μ" to 1e-6,"m" to 1e-3,"k" to 1e3,"M" to 1e6,"G" to 1e9)
+    private fun numberAndSuffix(text:String):Pair<Double,String>? {
+        val match=Regex("^\\s*([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*(.*?)\\s*$")
+            .matchEntire(text.replace('−','-')) ?: return null
+        val value=match.groupValues[1].toDoubleOrNull()?.takeIf { it.isFinite() } ?: return null
+        return value to match.groupValues[2].trim()
+    }
+    /** Property input is checked against its own unit; ms-valued properties stay in milliseconds. */
+    fun parse(text:String,expectedUnit:String):Double? {
+        val (value,suffix)=numberAndSuffix(text) ?: return null
+        if(suffix.isBlank()) return value
+        fun canonical(unit:String)=when(unit.trim().lowercase(Locale.ROOT)) {
+            "ohm","ohms","ω"->"Ω"
+            "volt","volts","v"->"V"
+            "amp","amps","a"->"A"
+            "f","farad","farads"->"F"
+            "h","henry","henries"->"H"
+            "w","watt","watts"->"W"
+            "hz"->"Hz"
+            "s","sec","second","seconds"->"s"
+            "c","°c","degc"->"°C"
+            "%rh","% rh"->"% RH"
+            else->unit.trim()
         }
-        return match.groupValues[1].toDoubleOrNull()?.times(scale)
+        val expected=canonical(expectedUnit)
+        if(canonical(suffix)==expected || expected=="% RH" && suffix=="%") return value
+        if(expected.isEmpty()) return prefixes[suffix]?.let { (value*it).takeIf(Double::isFinite) }
+        val (base,unitScale)=when(expected) { "ms"->"s" to .001;"mT"->"T" to .001;else->expected to 1.0 }
+        val suffixScale=when {
+            canonical(suffix)==base -> 1.0
+            suffix.take(1) in prefixes && canonical(suffix.drop(1))==base -> prefixes.getValue(suffix.take(1))
+            else -> return null
+        }
+        return BigDecimal.valueOf(value).multiply(BigDecimal.valueOf(suffixScale))
+            .divide(BigDecimal.valueOf(unitScale)).toDouble().takeIf { it.isFinite() }
     }
 }

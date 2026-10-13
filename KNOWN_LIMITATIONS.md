@@ -11,7 +11,9 @@ This is an interactive electronics and embedded-systems simulator. It is not a S
 - AC analysis is a linear frequency sweep of supported parts.
 
 ## Boards and firmware
-- Eleven boards. Uno, Nano, and Pico are Full for GPIO, ADC, PWM, and the supported firmware subset. The rest are Functional.
+- Nineteen boards. The eight additions are Leonardo, Micro, Due, UNO R4 Minima, Pico 2 W, ESP32-S3-DevKitC-1 v1.1 N8R8, ESP32-C6-DevKitC-1 v1.2, and ESP32-S2-Saola-1 v1.2 WROVER. Their pin maps and nominal hardware profiles are audited; execution remains a bounded firmware subset, not CPU instruction emulation.
+- ADC conversions on the new boards are nominal linear approximations. Due and UNO R4 use Arduino's default 10-bit reads; higher hardware resolutions require APIs outside the supported subset. S2 WROVER revision 0 uses the documented 13-bit default; later S2 revisions differ.
+- Addressable RGB LEDs, USB HID/JTAG, DAC output, CAN, radio/network stacks, and chip-specific register programming are not simulated. S2 WROVER is a legacy EOL module. Main headers and SPI/ICSP connectors are modeled; USB and debug/test pads are not general wire terminals.
 - UART, I²C, and SPI are event buses. Bit timing is not claimed.
 - Mega Serial1/2/3 are labeled. The runtime executes Serial on D0/D1.
 - ESP32 DAC is hardware-only. Wi-Fi and Bluetooth are not simulated.

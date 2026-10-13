@@ -11,7 +11,7 @@ object PhaseFiveParts {
         Kind.ULTRASONIC to listOf("VCC","GND","TRIG","ECHO"),
         Kind.PIR_SENSOR to listOf("VCC","OUT","GND"),
         Kind.SPI_MEMORY to listOf("VCC","GND","MOSI","MISO","SCK","CS")
-    )
+    ) + MotionSensorParts.pinNames
     private fun p(key:String,label:String,unit:String,default:Double,min:Double,max:Double)=
         Parameter(key,label,unit,default,min,max)
     val definitions=listOf(
@@ -51,5 +51,5 @@ object PhaseFiveParts {
             limitations=listOf("JEDEC ID, WEL/BUSY, program, erase, protection and persistence; quad mode omitted."))
     ).map { def -> com.indianservers.circuitssimulator.firmware.EmbeddedProfiles.profiles[def.kind]?.let { profile ->
         def.copy(datasheet=profile.datasheet.copy(physicalPinOrder=pinNames.getValue(def.kind)),limitations=def.limitations+profile.limitations)
-    } ?: def }
+    } ?: def } + MotionSensorParts.definitions
 }
