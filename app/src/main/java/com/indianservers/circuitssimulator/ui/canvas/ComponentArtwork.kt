@@ -119,6 +119,9 @@ fun localTerminalOffset(p: PlacedComponent, pin: Int): Offset {
             0 -> Offset(-67f,-22f); 1 -> Offset(-67f,22f)
             2 -> Offset(67f,-22f); else -> Offset(67f,22f)
         }
+        else if(p.kind==Kind.MCP2515_CAN) {
+            if(pin<5) Offset(-67f,-48f+pin*24f) else Offset(67f,-36f+(pin-5)*24f)
+        }
         else if(p.kind in PhaseFiveParts.pinNames && p.terminalCount==6) when(pin) {
             0 -> Offset(-67f,-30f); 1 -> Offset(-67f,0f); 2 -> Offset(-67f,30f)
             3 -> Offset(67f,-30f); 4 -> Offset(67f,0f); else -> Offset(67f,30f)

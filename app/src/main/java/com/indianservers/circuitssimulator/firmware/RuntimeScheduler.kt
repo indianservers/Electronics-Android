@@ -29,7 +29,7 @@ class RuntimeScheduler {
         }
         return this
     }
-    fun reset() { sessions.values.forEach { it.reset() };fabric.reset();peripherals.reset() }
+    fun reset() { fabric.reset();peripherals.reset();sessions.values.forEach { it.reset() } }
     fun resetBoard(boardId:String?) {
         val session=sessions[boardId] ?: return
         session.reset(sessions.values.maxOf { it.timeMicros })
@@ -49,7 +49,15 @@ class RuntimeScheduler {
                 mapOf(only.board.boardId to (next.frames.lastOrNull()?.pins ?: emptyMap())),
                 fabric.log.toList(),fabric.displayText(),peripherals.angles())
         }
-        val frames=mutableListOf<FirmwareFrame>()
+        // The public result has always retained only the latest 2,500 frames.
+        // Bound storage during the advance too: SPI clocks can produce thousands
+        // of full electrical snapshots before a single advance returns.
+        val frames=ArrayDeque<FirmwareFrame>()
+        fun capture(frame:FirmwareFrame) {
+            if(frames.size==2500)frames.removeFirst()
+            frames.addLast(frame)
+        }
+        fun captureAll(batch:List<FirmwareFrame>) { batch.forEach(::capture) }
         var error:FirmwareDiagnostic?=null
         var time=sessions.values.maxOfOrNull { it.timeMicros } ?: 0L
         val target=time+deltaMicros
@@ -61,12 +69,12 @@ class RuntimeScheduler {
                 sessions.values.forEach { session ->
                     session.environment=session.board.circuit.environment
                     val slice=session.advance(0)
-                    frames+=slice.frames
+                    captureAll(slice.frames)
                     if(slice.error!=null) error=FirmwareDiagnostic(slice.error.line,"${session.board.part.reference}: ${slice.error.message}")
                 }
                 sessions.values.forEach { session ->
                     val slice=session.advanceElectricalTo(time)
-                    frames+=slice.frames
+                    captureAll(slice.frames)
                     if(slice.error!=null) error=FirmwareDiagnostic(slice.error.line,"${session.board.part.reference}: ${slice.error.message}")
                 }
                 val circuit=sessions.values.first().board.circuit
@@ -81,14 +89,14 @@ class RuntimeScheduler {
                 val result=sessions.values.first().board.settleSharedCircuit(envCircuit,drives,time)
                 fabric.observe(circuit,result,time)
                 sessions.values.forEach { it.board.observe(result,0.0,sample) }
-                frames+=FirmwareFrame(time,result,emptyMap())
+                capture(FirmwareFrame(time,result,emptyMap()))
                 fabric.exchangeUart(circuit,time)
                 if(time>=target || sessions.values.all { it.isStopped }) break
                 val limit=minOf(target,time+2000L)
                 val next=sessions.values.minOf { it.nextSchedulerEvent(limit) }.coerceAtLeast(time+1)
                 sessions.values.forEach { session ->
                     val slice=session.advanceElectricalTo(next)
-                    frames+=slice.frames
+                    captureAll(slice.frames)
                     if(slice.error!=null) error=FirmwareDiagnostic(slice.error.line,"${session.board.part.reference}: ${slice.error.message}")
                 }
                 time=next
@@ -96,7 +104,7 @@ class RuntimeScheduler {
         } catch(e:Exception) {
             error=FirmwareDiagnostic(0,e.message ?: "Firmware scheduler failed")
         }
-        return CombinedAdvance(frames.takeLast(2500),
+        return CombinedAdvance(frames.toList(),
             sessions.mapValues { it.value.consoleLines() },error,time,
             sessions.mapValues { it.value.currentLine },
             sessions.mapValues { it.value.variables() },

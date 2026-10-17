@@ -1,0 +1,6 @@
+{
+  "application": "Smart electrical energy monitoring",
+  "applicationNumber": 10,
+  "hasExecutableDesign": true,
+  "board": "WEMOS_D1_MINI"
+}

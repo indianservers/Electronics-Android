@@ -1,0 +1,6 @@
+{
+  "application": "Home security and intrusion detection",
+  "applicationNumber": 6,
+  "hasExecutableDesign": true,
+  "board": "ESP32_S2_SAOLA"
+}

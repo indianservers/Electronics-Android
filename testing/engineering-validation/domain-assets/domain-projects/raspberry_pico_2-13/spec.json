@@ -1,0 +1,239 @@
+{
+  "project": "Vehicle CAN diagnostic monitoring / Pico 2",
+  "board": "RASPBERRY_PICO_2",
+  "applicationNumber": 13,
+  "scope": "Documented domain-monitoring circuit and bounded firmware model",
+  "firmwareLanguage": "ARDUINO_SUBSET; not native C++",
+  "modelSensors": 10,
+  "normalExpected": {
+    "T0": {
+      "temperatureC": 30.0
+    },
+    "T1": {
+      "temperatureC": 32.0
+    },
+    "T2": {
+      "temperatureC": 34.0
+    },
+    "T3": {
+      "temperatureC": 36.0
+    },
+    "T4": {
+      "temperatureC": 38.0
+    },
+    "T5": {
+      "temperatureC": 40.0
+    },
+    "T6": {
+      "temperatureC": 42.0
+    },
+    "T7": {
+      "temperatureC": 44.0
+    },
+    "canIdentifier": 801,
+    "canBitRate": 500000,
+    "spiClockHz": 500000,
+    "remoteFaults": 0,
+    "remoteExcursions": 0
+  },
+  "interfaces": [
+    "SPI",
+    "I2C",
+    "CAN",
+    "UART",
+    "GPIO"
+  ],
+  "sensors": [
+    {
+      "id": "T0",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 72,
+        "temperatureC": 30,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T1",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 73,
+        "temperatureC": 32,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T2",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 74,
+        "temperatureC": 34,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T3",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 75,
+        "temperatureC": 36,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T4",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 76,
+        "temperatureC": 38,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T5",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 77,
+        "temperatureC": 40,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T6",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 78,
+        "temperatureC": 42,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T7",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 79,
+        "temperatureC": 44,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "CO",
+      "kind": "ZE07_CO",
+      "stimuli": {
+        "temperatureC": 25,
+        "coPpm": 0
+      },
+      "source": {
+        "manufacturer": "Winsen",
+        "part": "ZE07-CO",
+        "revision": "V1.7 2020-10-19",
+        "url": "https://www.winsen-sensor.com/d/files/manual/ze07-co.pdf",
+        "sections": "technical parameters, DAC transfer and pins; analog steady-state subset"
+      }
+    },
+    {
+      "id": "PRESSURE",
+      "kind": "MPX5010_PRESSURE",
+      "stimuli": {
+        "temperatureC": 25,
+        "pressureKpa": 2
+      },
+      "source": {
+        "manufacturer": "NXP Semiconductors",
+        "part": "MPX5010",
+        "revision": "Rev14 2024-05-17",
+        "url": "https://www.nxp.com/docs/en/data-sheet/MPX5010.pdf",
+        "sections": "operating characteristics, nominal transfer"
+      }
+    }
+  ],
+  "physicalAccuracyClaim": false,
+  "limitationsFile": "scope.txt",
+  "boardSpecifications": "Existing repository profile; board source audit remains separately qualified",
+  "executedJvmScenarios": [
+    "two-controller-normal,PASSED,300000",
+    "ecu-reset,PASSED,600000",
+    "independent-thermal-0,PASSED,300000",
+    "independent-thermal-1,PASSED,300000",
+    "independent-thermal-2,PASSED,300000",
+    "independent-thermal-3,PASSED,300000",
+    "independent-thermal-4,PASSED,300000",
+    "independent-thermal-5,PASSED,300000",
+    "independent-thermal-6,PASSED,300000",
+    "independent-thermal-7,PASSED,300000",
+    "co-excursion,PASSED,300000",
+    "pressure-excursion,PASSED,300000",
+    "remote-i2c-fault,PASSED,300000",
+    "canh-disconnected,PASSED,300000",
+    "termination-loss,PASSED,300000",
+    "transceiver-supply-loss,PASSED,300000",
+    "can-bit-rate-mismatch,PASSED,300000",
+    "can-pair-short,PASSED,300000",
+    "save-reload,PASSED,300000"
+  ],
+  "circuitSha256": "9ead8bd133213279a1524a7e237f92d9985e11d42e0707ce748fd0ca34a01583"
+}

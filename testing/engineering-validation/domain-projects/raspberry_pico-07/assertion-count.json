@@ -1,0 +1,25 @@
+{
+  "circuitSha256": "e9bb89b1c8e50bc4b5521891d59e6f1c7d9eec122b3fc0d5f17ae3e8ad84caa7",
+  "assertions": 119834,
+  "scenarios": [
+    "normal,PASSED,5015000",
+    "independent-thermal-0,PASSED,5015000",
+    "independent-thermal-1,PASSED,5015000",
+    "independent-thermal-2,PASSED,5015000",
+    "independent-thermal-3,PASSED,5015000",
+    "independent-thermal-4,PASSED,5015000",
+    "independent-thermal-5,PASSED,5015000",
+    "independent-thermal-6,PASSED,5015000",
+    "independent-thermal-7,PASSED,5015000",
+    "co2-excursion,PASSED,5015000",
+    "co-excursion,PASSED,5015000",
+    "co2-invalid,PASSED,5015000",
+    "analog-supply-loss,PASSED,5015000",
+    "invalid-motion-input,PASSED,5015000",
+    "sensor-supply-loss,PASSED,5015000",
+    "disconnected-acceleration,PASSED,5015000",
+    "save-reload,PASSED,5015000",
+    "reset,PASSED,10030000"
+  ],
+  "status": "PASSED_DOMAIN_MONITORING"
+}

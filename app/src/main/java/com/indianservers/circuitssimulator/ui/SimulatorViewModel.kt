@@ -1140,7 +1140,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
             usages=usages,
             pins=state.firmware.boardPins+mapOfNotNull(state.firmware.boardId,state.firmware.pins),
             missingI2cPullups=!firmwareRuntime.fabric.hasI2cPullups(state.circuit) &&
-                state.circuit.components.any { it.kind in setOf(Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM) || it.kind in MotionSensorParts.profiles },
+                state.circuit.components.any { it.kind in setOf(Kind.I2C_TEMP_SENSOR,Kind.I2C_EEPROM,Kind.I2C_LCD,Kind.OLED_SSD1306) || it.kind in MotionSensorParts.profiles || it.kind in ChemistrySensorParts.profiles || it.kind in GasSensorParts.pinNames || it.kind in PowerSensorParts.pinNames || it.kind in LightSensorParts.pinNames },
             duplicateAddresses=firmwareRuntime.fabric.duplicateAddresses())
     }
     private fun mapOfNotNull(id:String?,pins:Map<String,GpioReading>)=
@@ -1153,15 +1153,7 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 val next=withContext(Dispatchers.Default) {
-                    if(firmwareRuntime.sessions.size>1) firmwareRuntime.advance(deltaMicros.coerceIn(0,10_000_000))
-                    else {
-                        val single=session.advance(deltaMicros.coerceIn(0,10_000_000))
-                        CombinedAdvance(single.frames,mapOf(session.board.boardId to single.console),
-                            single.error,single.timeMicros,mapOf(session.board.boardId to single.currentLine),
-                            mapOf(session.board.boardId to single.variables),
-                            mapOf(session.board.boardId to (single.frames.lastOrNull()?.pins ?: emptyMap())),
-                            firmwareRuntime.fabric.log.toList(),firmwareRuntime.fabric.displayText())
-                    }
+                    FirmwarePlayback.advance(firmwareRuntime,deltaMicros.coerceIn(0,10_000_000))
                 }
                 if(version!=solveVersion || firmwareSession!==session) return@launch
                 val prior=_state.value
@@ -1222,8 +1214,10 @@ class SimulatorViewModel(app: Application) : AndroidViewModel(app) {
         val hint=when(part.kind) {
             in MotionSensorParts.profiles ->
                 "Use a compatible 3.3 V board: SDA → ${board?.hardware?.i2cPins?.first ?: "board SDA"}; SCL → ${board?.hardware?.i2cPins?.second ?: "board SCL"}. Connect VCC and common GND; add external SDA/SCL pull-ups to 3.3 V. No 5 V regulator or level shifter is modeled. Address strap is in Properties; enable measurement through I2C control registers."
-            Kind.I2C_TEMP_SENSOR,Kind.I2C_EEPROM,Kind.I2C_LCD,Kind.OLED_SSD1306 ->
+            Kind.SCD41_CO2,Kind.BH1750_LIGHT,Kind.EZO_PH,Kind.EZO_EC,Kind.EZO_DO,Kind.I2C_TEMP_SENSOR,Kind.I2C_EEPROM,Kind.I2C_LCD,Kind.OLED_SSD1306 ->
                 "SDA → ${board?.hardware?.i2cPins?.first ?: "board SDA"}; SCL → ${board?.hardware?.i2cPins?.second ?: "board SCL"}. Connect compatible VCC and common GND; check pull-ups and address."
+            Kind.INA219_POWER -> "Connect VCC and GND, SDA/SCL with external pull-ups. Wire IN+ and IN- across an external shunt; sense common-mode must be 0–26 V. Program calibration before reading current or power."
+            Kind.MCP2515_CAN -> "Connect SPI MOSI/MISO/SCK and a separate CS. VCC powers the controller and transceiver VIO; VTRANS needs 4.5–5.5 V. Join CANH/CANL and GND to a peer and fit two 120 ohm end terminations. Use accept-all standard-frame one-shot polling mode."
             Kind.SPI_MEMORY -> "MOSI/MISO/SCK → ${board?.hardware?.spiPins?.take(3)?.joinToString() ?: "board SPI"}; wire a separate GPIO to CS. Use 3.3 V power and compatible logic."
             Kind.SERIAL_TERMINAL -> "Terminal TX → board RX; terminal RX ← board TX; connect common GND. Match baud/framing and logic voltage."
             Kind.ULTRASONIC -> "Use 5 V VCC and common GND; drive TRIG for ≥10 µs. Measure ECHO width; level-shift its 5 V output for 3.3 V boards."

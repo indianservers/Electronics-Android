@@ -1,0 +1,6 @@
+{
+  "application": "Smart greenhouse automation",
+  "applicationNumber": 3,
+  "hasExecutableDesign": true,
+  "board": "RASPBERRY_PICO_W"
+}

@@ -1,0 +1,173 @@
+{
+  "application": "Advanced robotics sensor integration",
+  "applicationNumber": 20,
+  "hasExecutableDesign": true,
+  "board": "RASPBERRY_PICO",
+  "classification": "NOT_EXECUTED",
+  "scope": "Complementary roll and one-dimensional integration. No complete robot mechanics, ToF/magnetometer/encoder/limit-switch feedback.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://datasheets.raspberrypi.com/pico/pico-datasheet.pdf",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "sensorInstances": 10,
+  "uniqueSensorPartCount": 3,
+  "uniqueSensorTechnologyCount": 3,
+  "sensorInterfaces": [
+    "I2C"
+  ],
+  "sensorKinds": [
+    "ADXL345_ACCEL",
+    "I2C_TEMP_SENSOR",
+    "LSM6DSOX_IMU"
+  ],
+  "sensors": [
+    {
+      "id": "T0",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 72,
+        "temperatureC": 25,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T1",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 73,
+        "temperatureC": 25.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T2",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 74,
+        "temperatureC": 26,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T3",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 75,
+        "temperatureC": 26.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T4",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 76,
+        "temperatureC": 27,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T5",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 77,
+        "temperatureC": 27.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T6",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 78,
+        "temperatureC": 28,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T7",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 79,
+        "temperatureC": 28.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "ACC",
+      "kind": "ADXL345_ACCEL",
+      "stimuli": {
+        "accelYG": 0,
+        "accelXG": 0,
+        "address": 83,
+        "accelZG": 1,
+        "vibrationFrequencyHz": 2,
+        "vibrationAmplitudeG": 0
+      },
+      "manufacturer": "Analog Devices",
+      "part": "ADXL345",
+      "source": "https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf"
+    },
+    {
+      "id": "IMU",
+      "kind": "LSM6DSOX_IMU",
+      "stimuli": {
+        "address": 106,
+        "gyroYDps": 0,
+        "gyroZDps": 0,
+        "gyroXDps": 0,
+        "accelYG": 0,
+        "accelXG": 0,
+        "accelZG": 1,
+        "vibrationFrequencyHz": 2,
+        "vibrationAmplitudeG": 0
+      },
+      "manufacturer": "STMicroelectronics",
+      "part": "LSM6DSOX",
+      "source": "https://www.st.com/resource/en/datasheet/lsm6dsox.pdf"
+    }
+  ],
+  "circuitSha256": "13f5796e8e8bb6e5a1a8e2f573a19c0f2c441f5c32292b333d8c0db7460673f7",
+  "firmwareRuntime": "ARDUINO_SUBSET, not CPU emulation",
+  "electricalAssumptions": "External ideal rails; explicit wiring/pull-ups/decoupling/dividers/shunts as present. Educational peripheral supply loads are not datasheet power models.",
+  "oracleSource": "PhaseTwoLightValidation.kt / PhaseTwoParkingValidation.kt / AdvancedProjectChecks.kt for individually recorded suites; legacy validators for inherited subsets",
+  "unexecutedFaults": [
+    "Full regulator-current-limit qualification",
+    "Physical thermal damage and semiconductor tolerance distributions",
+    "External hardware comparison"
+  ]
+}

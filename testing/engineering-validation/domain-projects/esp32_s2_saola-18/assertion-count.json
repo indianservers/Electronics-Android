@@ -1,0 +1,27 @@
+{
+  "circuitSha256": "04b67437717174cf849b582f2a6552ef11b59bdd38ef2387b822fb83d7333cf8",
+  "assertions": 5677,
+  "scenarios": [
+    "normal,PASSED,925000",
+    "independent-S0,PASSED,925000",
+    "independent-S1,PASSED,925000",
+    "independent-S2,PASSED,925000",
+    "independent-S3,PASSED,925000",
+    "independent-S4,PASSED,925000",
+    "independent-S5,PASSED,925000",
+    "independent-S6,PASSED,925000",
+    "independent-S7,PASSED,925000",
+    "independent-S8,PASSED,925000",
+    "independent-S9,PASSED,925000",
+    "minimum,PASSED,925000",
+    "maximum,PASSED,925000",
+    "nonfinite-injection,PASSED,925000",
+    "address-collision,PASSED,915000",
+    "undervoltage,PASSED,915000",
+    "overvoltage,PASSED,915000",
+    "disconnected,PASSED,925000",
+    "save-reload,PASSED,925000",
+    "reset,PASSED,1850000"
+  ],
+  "status": "PASSED_DOMAIN_MONITORING"
+}

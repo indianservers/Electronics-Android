@@ -8,6 +8,7 @@ import com.indianservers.circuitssimulator.simulation.embedded.GpioReading
 import com.indianservers.circuitssimulator.simulation.embedded.PinMode
 import com.indianservers.circuitssimulator.simulation.digital.LogicState
 import java.util.ArrayDeque
+import java.util.IdentityHashMap
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -42,21 +43,29 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
     private var bootAtMicros=0L
     var currentLine=0
         private set
-    private data class PulseWait(val pin:String,val high:Boolean,val timeoutAt:Long,var phase:Int,var startedAt:Long)
+    private data class PulseWait(val pin:String,val high:Boolean,val timeoutAt:Long,var phase:Int,var startedAt:Long,
+        val call:Expression.Call,val resultCache:IdentityHashMap<Expression,Any?>)
+    private class AwaitPulse : RuntimeException(null,null,false,false)
+    private var evaluationCache:IdentityHashMap<Expression,Any?>?=null
+    private val suspendedEvaluations=IdentityHashMap<Statement,IdentityHashMap<Expression,Any?>>()
+    private val pulseStatements=IdentityHashMap<Statement,Boolean>()
 
-    init { enqueue(program.setup) }
+    init { fabric.registerConsumer(board.boardId);enqueue(program.setup) }
     fun reset(startTimeMicros:Long=0) {
         pending.clear();values.clear();console.clear();board.reset()
         setupDone=false;wakeAt=startTimeMicros;stopped=false;serialBauds.clear();serialLine.clear();timeMicros=startTimeMicros;bootAtMicros=startTimeMicros;currentLine=0
         board.synchronizeClock(startTimeMicros)
         i2cTx=null;i2cRx.clear();servoPins.clear();pulseWait=null
+        evaluationCache=null;suspendedEvaluations.clear();pulseStatements.clear()
         interrupts.clear()
         interruptedWakeAt=null
         fabric.resetController(board.boardId)
+        fabric.registerConsumer(board.boardId,startTimeMicros)
         enqueue(program.setup)
     }
     fun stop() {
-        stopped=true;board.reset()
+        pulseWait=null;evaluationCache=null;suspendedEvaluations.clear();pulseStatements.clear()
+        stopped=true;board.reset();fabric.unregisterConsumer(board.boardId)
         fabric.uart.entries.removeAll { it.value.ownerId==board.boardId }
         fabric.i2cRoutes.remove(board.boardId)
     }
@@ -73,7 +82,28 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
     }
     private fun truth(value:Any?)=when(value) { is Boolean -> value;is Number -> value.toDouble()!=0.0;
         is String -> value.isNotEmpty();else -> false }
-    private fun eval(expr:Expression):Any?=when(expr) {
+    private fun mayWait(expr:Expression):Boolean=when(expr){
+        is Expression.Call->ArduinoSubset.canonicalApi(expr.name)=="pulseIn" || expr.args.any(::mayWait)
+        is Expression.Binary->mayWait(expr.left) || mayWait(expr.right)
+        is Expression.Unary->mayWait(expr.value)
+        else->false
+    }
+    private fun mayWait(stmt:Statement):Boolean=pulseStatements[stmt] ?: when(stmt){
+        is Statement.Assign->mayWait(stmt.value)
+        is Statement.Evaluate->mayWait(stmt.call)
+        is Statement.Branch->mayWait(stmt.condition)
+        is Statement.While->mayWait(stmt.condition)
+        is Statement.For->stmt.init?.let(::mayWait) ?: false
+        else->false
+    }.also {pulseStatements[stmt]=it}
+    private fun eval(expr:Expression):Any? {
+        val cache=evaluationCache
+        if(cache?.containsKey(expr)==true)return cache[expr]
+        val result=evalUncached(expr)
+        cache?.put(expr,result)
+        return result
+    }
+    private fun evalUncached(expr:Expression):Any?=when(expr) {
         is Expression.Literal -> expr.value
         is Expression.Name -> when(expr.name) {
             "HIGH","OUTPUT","true","True","Pin.OUT" -> 1.0
@@ -111,6 +141,9 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
                     "*" -> number(left)*number(right)
                     "/" -> number(left)/number(right)
                     "%" -> number(left)%number(right)
+                    "&" -> (number(left).toLong() and number(right).toLong()).toDouble()
+                    "|" -> (number(left).toLong() or number(right).toLong()).toDouble()
+                    "^" -> (number(left).toLong() xor number(right).toLong()).toDouble()
                     "==" -> if(left==right || runCatching { number(left)==number(right) }.getOrDefault(false)) 1.0 else 0.0
                     "!=" -> if(left==right || runCatching { number(left)==number(right) }.getOrDefault(false)) 0.0 else 1.0
                     "<" -> if(number(left)<number(right)) 1.0 else 0.0
@@ -205,6 +238,9 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
                 outMin+(x-inMin)*(outMax-outMin)/(inMax-inMin)
             }
             "constrain" -> number(eval(args[0])).coerceIn(number(eval(args[1])),number(eval(args[2])))
+            "sqrt" -> kotlin.math.sqrt(number(eval(args[0])))
+            "atan2" -> kotlin.math.atan2(number(eval(args[0])),number(eval(args[1])))
+            "abs" -> kotlin.math.abs(number(eval(args[0])))
             "hex" -> number(eval(args[0])).toLong().toString(16)
             "tone" -> {
                 val frequency=number(eval(args[1]))
@@ -216,8 +252,9 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
                 val resolved=pin(args[0])
                 val high=number(eval(args[1]))!=0.0
                 val timeout=if(args.size>2) number(eval(args[2])).toLong() else 1_000_000L
-                pulseWait=PulseWait(resolved,high,timeMicros+timeout,0,0)
-                wakeAt=timeMicros+1;0.0
+                pulseWait=PulseWait(resolved,high,timeMicros+timeout,0,0,call,requireNotNull(evaluationCache))
+                wakeAt=timeMicros+1
+                throw AwaitPulse()
             }
             "Serial.begin" -> {
                 val baud=number(eval(args[0])).toInt()
@@ -554,6 +591,7 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
             fabric.observe(board.circuit,step.circuitResult,timeMicros)
             fabric.exchangeUart(board.circuit,timeMicros)
             peripherals.stepServos(board.circuit,step.circuitResult,(next-previousTime)/1_000_000.0,board.pwmPins())
+            fabric.consumerAdvanced(board.boardId,timeMicros)
             interrupts.forEach { (pin,interrupt) ->
                 val level=board.digital(pin)
                 val prior=interrupt.previous
@@ -601,7 +639,7 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
         var diagnostic:FirmwareDiagnostic?=null
         try {
             if(board.latest==null) frames+=capture()
-            while(timeMicros<=target && operations++<10000) {
+            while(timeMicros<=target && operations<10000) {
                 if(wakeAt>timeMicros) {
                     advanceElectrical(minOf(target,wakeAt),frames)
                     if(timeMicros<wakeAt) break
@@ -615,15 +653,25 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
                 if(waiting!=null) {
                     val level=board.digital(waiting.pin)
                     val high=level==LogicState.HIGH
-                    if(waiting.phase==0 && high==waiting.high) { waiting.phase=1;waiting.startedAt=timeMicros }
-                    else if(waiting.phase==1 && high!=waiting.high) {
-                        values["_pulseIn"]=(timeMicros-waiting.startedAt).toDouble()
-                        pulseWait=null
-                    } else if(timeMicros>=waiting.timeoutAt) {
-                        values["_pulseIn"]=0.0;pulseWait=null
-                    } else { wakeAt=timeMicros+20;advanceElectrical(minOf(target,wakeAt),frames);continue }
+                    var result:Double?=null
+                    if(timeMicros>=waiting.timeoutAt)result=0.0
+                    else if(level!=LogicState.UNKNOWN)when(waiting.phase){
+                        0->if(high!=waiting.high)waiting.phase=1 // Ignore an already-active pulse.
+                        1->if(high==waiting.high){waiting.phase=2;waiting.startedAt=timeMicros}
+                        2->if(high!=waiting.high)result=(timeMicros-waiting.startedAt).toDouble()
+                    }
+                    if(result!=null){
+                        values["_pulseIn"]=result // Compatibility with existing explicit-result sketches.
+                        waiting.resultCache[waiting.call]=result;pulseWait=null
+                    }else{
+                        wakeAt=timeMicros+20;advanceElectrical(minOf(target,wakeAt),frames);continue
+                    }
                 }
+                operations++
                 val stmt=pending.removeFirst();currentLine=stmt.line
+                val context=if(mayWait(stmt))suspendedEvaluations.remove(stmt) ?: IdentityHashMap<Expression,Any?>()else null
+                evaluationCache=context
+                try {
                 when(stmt) {
                     is Statement.Block -> enqueue(stmt.body)
                     is Statement.Assign -> values[stmt.name]=eval(stmt.value)
@@ -645,6 +693,11 @@ class FirmwareSession(val program:FirmwareProgram,val board:FirmwareBoard,
                             statements(stmt.body)+listOfNotNull(stmt.step),stmt.line),stmt.line))
                     }
                 }
+                }catch(_:AwaitPulse){
+                    // Resume the same expression after its edge/timeout event. Cache
+                    // prior operands so reads/side effects are not executed twice.
+                    suspendedEvaluations[stmt]=requireNotNull(context);pending.addFirst(stmt);continue
+                }finally{evaluationCache=null}
                 fabric.exchangeUart(board.circuit,timeMicros)
                 if(program.microPython || stmt is Statement.Evaluate && ArduinoSubset.canonicalApi(stmt.call.name) in
                     setOf("pinMode","digitalWrite","analogWrite","tone","Servo.write","Servo.attach","Serial.print","Serial.println","Serial.write","SPI.transfer","Wire.endTransmission","Wire.requestFrom")) {

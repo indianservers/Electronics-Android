@@ -1,0 +1,6 @@
+{
+  "application": "Home security and intrusion detection",
+  "applicationNumber": 6,
+  "hasExecutableDesign": true,
+  "board": "RASPBERRY_PICO_2_W"
+}

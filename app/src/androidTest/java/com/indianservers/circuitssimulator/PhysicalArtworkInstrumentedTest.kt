@@ -43,8 +43,23 @@ class PhysicalArtworkInstrumentedTest {
             rule.waitForIdle()
             Thread.sleep(40)
         }
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
-        InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()?.let { save(it,name);it.recycle() }
+        // Copy this activity's actual surface. UiAutomation can be disconnected
+        // independently when a long-running host ADB session is interrupted.
+        val ready=java.util.concurrent.CountDownLatch(1)
+        val result=java.util.concurrent.atomic.AtomicInteger(-1)
+        lateinit var bitmap:Bitmap
+        rule.runOnUiThread {
+            val decor=rule.activity.window.decorView
+            bitmap=Bitmap.createBitmap(decor.width,decor.height,Bitmap.Config.ARGB_8888)
+            android.view.PixelCopy.request(rule.activity.window,bitmap,{
+                result.set(it);ready.countDown()
+            },android.os.Handler(android.os.Looper.getMainLooper()))
+        }
+        try {
+            assertTrue("Activity surface capture timed out",ready.await(5,java.util.concurrent.TimeUnit.SECONDS))
+            assertEquals("Activity surface capture failed",android.view.PixelCopy.SUCCESS,result.get())
+            save(bitmap,name)
+        } finally {bitmap.recycle()}
     }
 
     @Test fun entireLibraryRendersAtEveryRotationZoomAndGeneratesAuditGallery() {
@@ -79,7 +94,7 @@ class PhysicalArtworkInstrumentedTest {
                     abs(index%512-128f)<=radius && abs(index/512-128f)<=radius)
             }
             audit.put(JSONObject().put("component",kind.name).put("title",kind.title)
-                .put("renderer",if(handled) "physical package" else "dedicated passive/light/contact")
+                .put("renderer",if(handled) { if(ComponentRegistry.definitions.getValue(kind).datasheet.packageName?.contains("simulated",ignoreCase=true)==true) "simulated carrier" else "physical package" } else "dedicated passive/light/contact")
                 .put("toolboxCanvasShared",true).put("pins","existing stable anchors")
                 .put("rotations",JSONArray(listOf(0,90,180,270))).put("zooms",JSONArray(zooms))
                 .put("nativeRenderVerified",true))
@@ -279,14 +294,47 @@ class PhysicalArtworkInstrumentedTest {
         rule.runOnUiThread { rule.activity.setContent { SimulatorScreen(model) };model.dismissRecovery() }
         for(kind in listOf(Kind.OLED_SSD1306,Kind.I2C_LCD)) {
             val base=com.indianservers.circuitssimulator.firmware.FirmwareExamples.esp32OledCircuit()
-            val device=base.components.first { it.kind==Kind.OLED_SSD1306 }.copy(kind=kind,
-                parameters=mapOf("address" to if(kind==Kind.I2C_LCD) 39.0 else 60.0))
-            val circuit=base.copy(components=base.components.map { if(it.id==device.id) device else it })
+            val oled=base.components.first { it.kind==Kind.OLED_SSD1306 }
+            val device=oled.copy(kind=kind,parameters=mapOf("address" to if(kind==Kind.I2C_LCD)39.0 else 60.0))
+            val uno=PlacedComponent(id="LCD_MCU",kind=Kind.ARDUINO_UNO,reference="B1",x=200f,y=390f,parameters=mapOf("usbPower" to 1.0))
+            val ground=PlacedComponent(id="LCD_GND",kind=Kind.GROUND,reference="GND",x=200f,y=700f)
+            val pulls=(0..1).map {PlacedComponent(id="LCD_PU$it",kind=Kind.RESISTOR,reference="PU$it",x=450f,y=150f+it*90,parameters=mapOf("resistance" to 4700.0))}
+            val pins=BoardRegistry.boards.getValue(uno.kind)
+            fun pin(label:String)=TerminalRef(uno.id,pins.index(label))
+            val circuit=if(kind==Kind.OLED_SSD1306)base else Circuit("5 V LCD backpack QA",listOf(uno,ground,device)+pulls,
+                listOf(Wire(start=pin("GND"),end=TerminalRef(ground.id,0)),Wire(start=pin("5V"),end=TerminalRef(device.id,0)),
+                    Wire(start=pin("GND"),end=TerminalRef(device.id,1)),Wire(start=pin("A4"),end=TerminalRef(device.id,2)),
+                    Wire(start=pin("A5"),end=TerminalRef(device.id,3)))+pulls.mapIndexed { i,r ->
+                    listOf(Wire(start=pin("5V"),end=TerminalRef(r.id,0)),Wire(start=TerminalRef(r.id,1),end=pin(if(i==0)"A4" else "A5")))
+                }.flatten())
+            val glyphs=listOf(127,8,8,8,127,0,127,73,73,73,65,0,127,64,64,64,64,0,127,64,64,64,64,0,62,65,65,65,62,0)
+            val program=buildString {
+                append("void setup(){Wire.begin();delay(50);")
+                if(kind==Kind.OLED_SSD1306) {
+                    append("Wire.beginTransmission(60);Wire.write(0);Wire.write(175);Wire.write(176);Wire.write(0);Wire.write(16);Wire.endTransmission();")
+                    append("Wire.beginTransmission(60);Wire.write(64);")
+                    glyphs.forEach {append("Wire.write($it);")};append("Wire.endTransmission();")
+                } else {
+                    fun port(v:Int){append("Wire.beginTransmission(39);Wire.write($v);Wire.endTransmission();")}
+                    fun nibble(n:Int,rs:Int){port(n*16+8+rs+4);port(n*16+8+rs)}
+                    fun byte(v:Int,rs:Int){nibble(v shr 4,rs);nibble(v and 15,rs)}
+                    repeat(3){nibble(3,0);append("delay(5);")};nibble(2,0)
+                    byte(0x28,0);byte(0x0C,0);byte(1,0);append("delay(2);");byte(6,0);byte(0x80,0)
+                    "HELLO".forEach {byte(it.code,1)}
+                }
+                append("}void loop(){delay(20);}")
+            }
             rule.runOnUiThread { model.loadSample(circuit);model.showFirmware(true)
-                model.setFirmwareSource("void setup() { Wire.begin(); Wire.beginTransmission(${device.value("address").toInt()}); Wire.write(72); Wire.write(69); Wire.write(76); Wire.write(76); Wire.write(79); Wire.endTransmission(); } void loop() { delay(20); }")
+                model.setFirmwareSource(program)
                 assertTrue(model.compileFirmware());model.showFirmware(false);model.runFirmware() }
-            rule.waitUntil(15000) { model.state.value.firmware.displays[device.id]=="HELLO" }
-            assertEquals("HELLO",ComponentVisualAdapter.read(device,model.state.value).display)
+            if(kind==Kind.OLED_SSD1306) {
+                val expected=glyphs+List(1024-glyphs.size){0}
+                rule.waitUntil(15000) { model.state.value.firmware.framebuffers[device.id]==expected }
+                assertEquals(expected,ComponentVisualAdapter.read(device,model.state.value).pixels)
+            } else {
+                rule.waitUntil(15000) { model.state.value.firmware.displays[device.id]?.lineSequence()?.firstOrNull()?.trimEnd()=="HELLO" }
+                assertEquals("HELLO",ComponentVisualAdapter.read(device,model.state.value).display.lineSequence().first().trimEnd())
+            }
             screenshot("display-${kind.name}.png")
             rule.runOnUiThread { model.stopFirmware() }
         }

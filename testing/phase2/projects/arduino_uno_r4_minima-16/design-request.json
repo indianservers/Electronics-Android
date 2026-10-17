@@ -1,0 +1,6 @@
+{
+  "application": "Smart streetlight monitoring",
+  "applicationNumber": 16,
+  "hasExecutableDesign": true,
+  "board": "ARDUINO_UNO_R4_MINIMA"
+}

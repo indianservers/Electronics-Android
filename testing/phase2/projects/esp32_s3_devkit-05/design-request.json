@@ -1,0 +1,6 @@
+{
+  "application": "Industrial motor condition monitoring",
+  "applicationNumber": 5,
+  "hasExecutableDesign": true,
+  "board": "ESP32_S3_DEVKIT"
+}

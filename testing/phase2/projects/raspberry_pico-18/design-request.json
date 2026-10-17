@@ -1,0 +1,6 @@
+{
+  "application": "Cold-chain logistics monitoring",
+  "applicationNumber": 18,
+  "hasExecutableDesign": true,
+  "board": "RASPBERRY_PICO"
+}

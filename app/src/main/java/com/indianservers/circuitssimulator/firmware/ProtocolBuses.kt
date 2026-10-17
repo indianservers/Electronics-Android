@@ -6,7 +6,7 @@ import java.util.ArrayDeque
 import com.indianservers.circuitssimulator.simulation.DcResult
 import kotlin.math.roundToInt
 
-enum class BusKind { UART, I2C, SPI, USB }
+enum class BusKind { UART, I2C, SPI, USB, CAN }
 data class SpiConfiguration(val frequencyHz:Int=1000000,val mode:Int=0,val msbFirst:Boolean=true)
 data class BusEvent(val timeMicros:Long,val kind:BusKind,val summary:String,val ack:Boolean?=null)
 
@@ -30,6 +30,10 @@ class ProtocolFabric {
     val spiConfigurations=mutableMapOf<String,SpiConfiguration>()
     var currentTime=0L
     val waveforms=BusWaveforms()
+    private val consumers=mutableMapOf<String,Long>()
+    fun registerConsumer(id:String,time:Long=0){consumers[id]=time}
+    fun consumerAdvanced(id:String,time:Long){consumers[id]=time;waveforms.discardBefore(consumers.values.minOrNull() ?: time)}
+    fun unregisterConsumer(id:String){consumers.remove(id)}
     val completionTimes=mutableMapOf<String,Long>()
     private val i2cHeld=mutableSetOf<String>()
     private data class Delivery(val time:Long,val target:UartEndpoint,val byte:Int)
@@ -73,7 +77,23 @@ class ProtocolFabric {
             val part=circuit.components.firstOrNull { it.id==device.ownerId }
             device.address=part?.value("address")?.toInt() ?: device.address
             device.writeProtected=part?.value("writeProtect")==1.0
-            device.motion?.stimuli=part?.parameters.orEmpty()
+            device.localTemperature=part?.takeIf { it.kind==Kind.I2C_TEMP_SENSOR && it.value("useEnvironment")==0.0 }?.value("temperatureC")
+            device.motion?.stimuli=part?.parameters.orEmpty().let { values ->
+                if((values["vibrationAmplitudeG"] ?: 0.0)==0.0)values else values+("accelXG" to
+                    ((values["accelXG"] ?: 0.0)+(values["vibrationAmplitudeG"] ?: 0.0)*
+                        kotlin.math.sin(2*Math.PI*(values["vibrationFrequencyHz"] ?: 2.0)*time/1_000_000.0)))
+            }
+            device.chemistry?.stimuli=part?.parameters.orEmpty()
+            if(device.powered)device.gas?.advance(time)
+            device.gas?.stimuli=part?.parameters.orEmpty()
+            if(device.powered)device.light?.advance(time)
+            device.light?.lux=part?.value("illuminanceLux") ?: 300.0
+            device.powerMonitor?.let { monitor ->
+                if(device.powered)monitor.advance(time)
+                val ground=result?.nodeVoltages?.get(TerminalRef(device.ownerId,1)) ?: 0.0
+                monitor.positive=(result?.nodeVoltages?.get(TerminalRef(device.ownerId,4)) ?: Double.NaN)-ground
+                monitor.negative=(result?.nodeVoltages?.get(TerminalRef(device.ownerId,5)) ?: Double.NaN)-ground
+            }
             device.powerChanged(powered(circuit,device.ownerId),time)
         }
         spiDevices.forEach { device ->
@@ -83,23 +103,58 @@ class ProtocolFabric {
                 (result?.nodeVoltages?.get(TerminalRef(device.ownerId,1)) ?: 0.0)<.8
             device.select(power && low && circuit.wires.any { it.start==device.cs || it.end==device.cs },time)
         }
+        routeCan(circuit,result,time)
+    }
+    private fun routeCan(c:Circuit,result:DcResult?,time:Long) {
+        if(result==null || result.error!=null)return
+        val due=spiDevices.filter { it.powered && it.can?.pending?.due?.let {deadline->time>=deadline}==true }
+        if(due.isEmpty())return
+        val facts=CircuitFacts(c,null)
+        fun ref(d:SpiDeviceModel,pin:Int)=TerminalRef(d.ownerId,pin)
+        fun phy(d:SpiDeviceModel):Boolean {
+            val supply=(result.nodeVoltages[ref(d,8)] ?: 0.0)-(result.nodeVoltages[ref(d,1)] ?: 0.0)
+            return d.powered && supply in 4.5..5.5 && c.wires.any {it.start==ref(d,8) || it.end==ref(d,8)}
+        }
+        due.forEach {sender ->
+            val model=sender.can!!;val frame=model.pending ?: return@forEach
+            if(time<frame.due)return@forEach
+            if(model.mode==0x40){model.receive(frame);model.complete(true);record(time,BusKind.CAN,"${sender.ownerId} loopback 0x${frame.id.toString(16)}",true);return@forEach}
+            val h=ref(sender,6);val l=ref(sender,7)
+            val conductance=c.components.filter {it.kind==Kind.RESISTOR && it.value("resistance")>0}.filter {
+                (facts.same(TerminalRef(it.id,0),h) && facts.same(TerminalRef(it.id,1),l)) ||
+                    (facts.same(TerminalRef(it.id,1),h) && facts.same(TerminalRef(it.id,0),l))
+            }.sumOf {1.0/it.value("resistance")}
+            val valid=phy(sender) && !facts.same(h,l) && conductance>0 && 1.0/conductance in 50.0..65.0
+            val receivers=if(valid)spiDevices.filter {d->d!==sender && d.can?.mode==0 && phy(d) &&
+                d.can.bitrate==model.bitrate && sameGround(c,sender.ownerId,d.ownerId,facts) &&
+                facts.same(h,ref(d,6)) && facts.same(l,ref(d,7))} else emptyList()
+            receivers.forEach {receiver ->
+                if(receiver.can!!.registers[0x60] and 0x60==0x60)receiver.can.receive(frame)
+            }
+            model.complete(receivers.isNotEmpty())
+            record(time,BusKind.CAN,"${sender.ownerId} ID 0x${frame.id.toString(16)} [${frame.data.joinToString()}] ${if(receivers.isEmpty())"NO ACK" else "ACK"}",receivers.isNotEmpty())
+        }
     }
     var autoI2cPullups=true
         private set
     /** Release only this MCU's queued bus work; other controllers keep running. */
     fun resetController(id:String) {
-        val endpoints=uart.values.filter { it.ownerId==id }.toSet()
+        val bridgeId="USB_UART:$id"
+        val endpoints=uart.values.filter { it.ownerId==id || it.ownerId==bridgeId }.toSet()
         deliveries.removeIf { it.target in endpoints }
-        uart.entries.removeAll { it.value.ownerId==id }
+        uart.entries.removeAll { it.value in endpoints }
         uartBusyUntil.remove(id)
+        uartBusyUntil.remove(bridgeId)
         completionTimes.remove(id)
         i2cRoutes.remove(id)
         i2cHeld.remove(id)
         spiConfigurations.remove(id)
         waveforms.clearController(id)
+        waveforms.clearController(bridgeId)
     }
     fun reset() {
         electricalResult=null
+        consumers.clear()
         log.clear();uart.clear();i2cRoutes.clear();waveforms.clear();completionTimes.clear();i2cHeld.clear();spiConfigurations.clear();deliveries.clear();uartBusyUntil.clear()
         i2cDevices.forEach { it.powerChanged(false,0) }
         spiDevices.forEach { it.powerChanged(false,0) }
@@ -117,10 +172,11 @@ class ProtocolFabric {
         circuit.components.forEach { part ->
             when(part.kind) {
                 Kind.I2C_TEMP_SENSOR,Kind.I2C_LCD,Kind.OLED_SSD1306,Kind.I2C_EEPROM,
-                Kind.L3GD20_GYRO,Kind.LSM6DSOX_IMU,Kind.LIS3DH_ACCEL,Kind.ADXL345_ACCEL ->
+                Kind.INA219_POWER,Kind.SCD41_CO2,Kind.BH1750_LIGHT,Kind.EZO_PH,Kind.EZO_EC,Kind.EZO_DO,
+        Kind.L3GD20_GYRO,Kind.LSM6DSOX_IMU,Kind.LIS3DH_ACCEL,Kind.ADXL345_ACCEL ->
                     i2cDevices+=oldI2c[part.id]?.takeIf { it.kind==part.kind }
                         ?: I2cDeviceModel(part.value("address").toInt(),part.id,part.kind)
-                Kind.SPI_MEMORY -> spiDevices+=oldSpi[part.id] ?: SpiDeviceModel(part.id,TerminalRef(part.id,5))
+                Kind.SPI_MEMORY,Kind.MCP2515_CAN -> spiDevices+=oldSpi[part.id]?.takeIf {it.kind==part.kind} ?: SpiDeviceModel(part.id,TerminalRef(part.id,5),kind=part.kind)
                 // 74HC595 is GPIO clock/latch, not a CS-addressed SPI memory.
                 else -> Unit
             }
@@ -131,13 +187,12 @@ class ProtocolFabric {
         spiDevices.filter { it.ownerId !in oldSpi }.forEach { it.memory.putAll(circuit.peripheralMemory[it.ownerId].orEmpty()) }
     }
     fun persistentMemory():Map<String,Map<Int,Int>> = i2cDevices.filter { it.kind==Kind.I2C_EEPROM }
-        .associate { it.ownerId to it.memory.toMap() }+spiDevices.associate { it.ownerId to it.memory.toMap() }
+        .associate { it.ownerId to it.memory.toMap() }+spiDevices.filter {it.kind==Kind.SPI_MEMORY}.associate { it.ownerId to it.memory.toMap() }
     fun framebuffers()=i2cDevices.filter { it.kind==Kind.OLED_SSD1306 }.associate { it.ownerId to it.oled.pixels() }
     fun inspectors()=(i2cDevices+spiDevices).associate { it.ownerId to it.inspect(currentTime) }
     private fun board(c:Circuit,id:String)=c.components.firstOrNull { it.id==id && it.kind.isBoard }
         ?.let { BoardRegistry.boards.getValue(it.kind) }
-    private fun sameGround(c:Circuit,a:String,b:String):Boolean {
-        val facts=CircuitFacts(c,null)
+    private fun sameGround(c:Circuit,a:String,b:String,facts:CircuitFacts=CircuitFacts(c,null)):Boolean {
         fun grounds(id:String):List<TerminalRef> {
             val part=c.components.firstOrNull { it.id==id } ?: return emptyList()
             return if(part.kind.isBoard) BoardRegistry.boards.getValue(part.kind).pins.mapIndexedNotNull { i,p ->
@@ -161,7 +216,7 @@ class ProtocolFabric {
             }
         }
         val labels=PhaseFiveParts.pinNames[part.kind] ?: return false
-        val power=labels.indexOfFirst { it in setOf("VCC","V+","VDD") }
+        val power=labels.indexOfFirst { it=="VCC" || it=="V+" || it=="VDD" }
         val ground=labels.indexOf("GND")
         if(power<0 || ground<0) return false
         if(c.wires.none { it.start==TerminalRef(id,power) || it.end==TerminalRef(id,power) }) return false
@@ -179,11 +234,12 @@ class ProtocolFabric {
             return emptyList()
         }
         return i2cDevices.filter { device ->
+            if(device.kind==Kind.BH1750_LIGHT && device.address !in listOf(35,92))return@filter false
             val kind=c.components.firstOrNull { it.id==device.ownerId }?.kind
             val labels=PhaseFiveParts.pinNames[kind].orEmpty()
             facts.same(sda,TerminalRef(device.ownerId,labels.indexOf("SDA"))) &&
                 facts.same(scl,TerminalRef(device.ownerId,labels.indexOf("SCL"))) &&
-                sameGround(c,id,device.ownerId) && powered(c,device.ownerId) &&
+                sameGround(c,id,device.ownerId,facts) && powered(c,device.ownerId) &&
                 listOf(2,3).all { pin ->
                     val voltage=(electricalResult?.nodeVoltages?.get(TerminalRef(device.ownerId,pin)) ?: 0.0)-
                         (electricalResult?.nodeVoltages?.get(TerminalRef(device.ownerId,1)) ?: 0.0)
@@ -201,7 +257,8 @@ class ProtocolFabric {
         val g=result.nodeVoltages[TerminalRef(controllerId,def.pins.indexOfFirst { it.type==PinType.GROUND })] ?: 0.0
         val high=(result.nodeVoltages[pin] ?: 0.0)-g
         val module=c.components.any { p ->
-            EmbeddedProfiles.profiles[p.kind]?.electrical?.modulePullupOhms!=null && powered(c,p.id) &&
+            EmbeddedProfiles.profiles[p.kind]?.electrical?.modulePullupOhms!=null &&
+                (p.kind!=Kind.I2C_TEMP_SENSOR || p.value("pullupsEnabled")>=.5) && powered(c,p.id) &&
                 listOf(2,3).any { facts.same(pin,TerminalRef(p.id,it)) }
         }
         val resistor=c.components.any { p -> p.kind==Kind.RESISTOR && p.value("resistance") in 1000.0..100000.0 &&
@@ -224,7 +281,8 @@ class ProtocolFabric {
                     supplies.any { supply -> (0 until supply.terminalCount).any { facts.same(TerminalRef(resistor.id,0),TerminalRef(supply.id,it)) } })
         }
         fun modulePull(net:Set<TerminalRef>)=circuit.components.any { p ->
-            EmbeddedProfiles.profiles[p.kind]?.electrical?.modulePullupOhms!=null && (2..3).any { TerminalRef(p.id,it) in net }
+            EmbeddedProfiles.profiles[p.kind]?.electrical?.modulePullupOhms!=null &&
+                (p.kind!=Kind.I2C_TEMP_SENSOR || p.value("pullupsEnabled")>=.5) && (2..3).any { TerminalRef(p.id,it) in net }
         }
         val present=sda.all { pulled(it) || modulePull(it) } && scl.all { pulled(it) || modulePull(it) }
         autoI2cPullups=false
@@ -286,6 +344,16 @@ class ProtocolFabric {
         }
         uart.values.toList().forEach { source ->
             val tx=source.tx ?: return@forEach
+            if(source.txBytes.isEmpty())return@forEach
+            // Validate the HIGH level with the sender's own in-flight bit released.
+            // Sampling a previous START/data LOW incorrectly dropped queued prints.
+            // The probe retains physical loads/shorts and other bus drives.
+            val highProbe by lazy {
+                val signals=waveforms.drives(timeMicros).filter {it.terminal!=tx}
+                val occupied=signals.map {it.terminal}.toSet()
+                com.indianservers.circuitssimulator.simulation.DcSolver().solve(circuit,
+                    signals+uartIdleDrives(circuit,electricalResult).filter {it.terminal !in occupied})
+            }
             while(source.txBytes.isNotEmpty()) {
                 val byte=source.txBytes.removeFirst() and ((1 shl source.dataBits)-1)
                 val start=maxOf(timeMicros,uartBusyUntil[source.ownerId] ?: timeMicros)
@@ -304,13 +372,15 @@ class ProtocolFabric {
                     val sourcePart=circuit.components.firstOrNull { it.id==source.ownerId }
                     val targetPart=circuit.components.firstOrNull { it.id==target.ownerId }
                     val nativeParts=sourcePart!=null && targetPart!=null
-                    val voltage=electricalResult?.nodeVoltages?.get(target.rx)
+                    val targetGround=highProbe.nodeVoltages[TerminalRef(target.ownerId,
+                        board(circuit,target.ownerId)?.pins?.indexOfFirst {it.type==PinType.GROUND} ?: 2)] ?: 0.0
+                    val voltage=highProbe.nodeVoltages[target.rx]?.minus(targetGround)
                     val max=board(circuit,target.ownerId)?.logicVoltage ?: 5.0
                     val sourcePower=sourcePart?.kind==Kind.SERIAL_TERMINAL || powered(circuit,source.ownerId)
                     val targetPower=targetPart?.kind==Kind.SERIAL_TERMINAL || powered(circuit,target.ownerId)
                     val valid=source.baud==target.baud && source.dataBits==target.dataBits && source.parity==target.parity && source.stopBits==target.stopBits && (!nativeParts ||
                         sameGround(circuit,source.ownerId,target.ownerId) && sourcePower && targetPower &&
-                        voltage!=null && voltage in (max*.6)..(max+.15))
+                        highProbe.error==null && voltage!=null && voltage in (max*.6)..(max+.15))
                     if(valid) {
                         deliveries+=Delivery(finish,target,byte)
                     } else record(timeMicros,BusKind.UART,"UART mismatch: baud, power, ground or voltage domain",false)
@@ -374,14 +444,18 @@ class ProtocolFabric {
     }
     fun spiTransfer(circuit:Circuit,controllerId:String,mosi:Int,selected:List<String>,timeMicros:Long):Int {
         observe(circuit,electricalResult,timeMicros)
-        val unique=selected.distinct()
-        if(unique.size>1) record(timeMicros,BusKind.SPI,"Multiple CS lines low; MISO contention",false)
         val def=board(circuit,controllerId)
         val facts=CircuitFacts(circuit,null)
+        // LOW CS on a different MCU's physically separate SPI bus is not MISO contention.
+        val unique=selected.distinct().filter { id ->
+            val sck=def?.hardware?.spiPins?.getOrNull(2)
+            sck!=null && facts.same(TerminalRef(controllerId,def.index(sck)),TerminalRef(id,4))
+        }
+        if(unique.size>1) record(timeMicros,BusKind.SPI,"Multiple CS lines low; MISO contention",false)
         val targets=if(unique.size==1 && def!=null && powered(circuit,controllerId)) spiDevices.filter { device ->
             val part=circuit.components.firstOrNull { it.id==device.ownerId }
             val labels=PhaseFiveParts.pinNames[part?.kind].orEmpty()
-            device.ownerId==unique.single() && sameGround(circuit,controllerId,device.ownerId) && powered(circuit,device.ownerId) &&
+            device.ownerId==unique.single() && sameGround(circuit,controllerId,device.ownerId,facts) && powered(circuit,device.ownerId) &&
                 circuit.wires.any { it.start==device.cs || it.end==device.cs } &&
                 listOf("MOSI","MISO","SCK").mapIndexed { i,name ->
                     val target=labels.indexOf(name)
@@ -389,8 +463,10 @@ class ProtocolFabric {
                         TerminalRef(device.ownerId,target)) }.all { it }
         } else emptyList()
         val config=spiConfigurations[controllerId] ?: SpiConfiguration()
-        val compatible=config.mode in setOf(0,3) && config.msbFirst && config.frequencyHz in 1..50000000 &&
-            (def?.logicVoltage ?: 0.0)<=3.6
+        val target=targets.singleOrNull()
+        val supply=target?.let { (electricalResult?.nodeVoltages?.get(TerminalRef(it.ownerId,0)) ?: 0.0)-(electricalResult?.nodeVoltages?.get(TerminalRef(it.ownerId,1)) ?: 0.0) } ?: 0.0
+        val compatible=config.mode in setOf(0,3) && config.msbFirst && config.frequencyHz in 1..(target?.profile?.electrical?.maximumClockHz ?: 50000000) &&
+            (if(target?.kind==Kind.MCP2515_CAN)(def?.logicVoltage ?: 0.0) in supply*.7..supply+.3 else (def?.logicVoltage ?: 0.0)<=3.6)
         val rx=if(compatible) targets.singleOrNull()?.transfer(mosi,timeMicros) ?: 0xFF else 0xFF
         if(def!=null) {
             val pins=def.hardware.spiPins
@@ -404,14 +480,14 @@ class ProtocolFabric {
                 val bit=if(config.msbFirst)7-i else i
                 if(phase==1) { waveforms.add(t,"SPI:$controllerId:SCK",TerminalRef(controllerId,def.index(pins[2])),g+if(!idle)def.logicVoltage else 0.0);t+=half }
                 waveforms.add(t,"SPI:$controllerId:MOSI",TerminalRef(controllerId,def.index(pins[0])),g+if(mosi and (1 shl bit)!=0)def.logicVoltage else 0.0)
-                selectedTarget?.let { waveforms.add(t,"SPI:${it.ownerId}:MISO",TerminalRef(it.ownerId,3),g+if(rx and (1 shl bit)!=0)3.3 else 0.0) }
+                selectedTarget?.let { waveforms.add(t,"SPI:${it.ownerId}:MISO",TerminalRef(it.ownerId,3),g+if(rx and (1 shl bit)!=0)(if(it.kind==Kind.MCP2515_CAN)supply else 3.3) else 0.0) }
                 if(phase==0) { t+=half;waveforms.add(t,"SPI:$controllerId:SCK",TerminalRef(controllerId,def.index(pins[2])),g+if(!idle)def.logicVoltage else 0.0) }
                 t+=half;waveforms.add(t,"SPI:$controllerId:SCK",TerminalRef(controllerId,def.index(pins[2])),g+if(idle)def.logicVoltage else 0.0)
             }
             completionTimes[controllerId]=t
             selectedTarget?.let { waveforms.add(t,"SPI:${it.ownerId}:MISO",TerminalRef(it.ownerId,3),null) }
         }
-        if(!compatible) record(timeMicros,BusKind.SPI,"SPI fault: mode, bit order, clock or 3.3 V logic domain unsupported by W25Q32JV",false)
+        if(!compatible) record(timeMicros,BusKind.SPI,"SPI fault: mode, bit order, clock or logic domain incompatible with ${target?.profile?.family ?: "selected peripheral"}",false)
         record(timeMicros,BusKind.SPI,"CS ${if(unique.isEmpty()) "HIGH" else "LOW"}  TX: 0x${mosi.toString(16)}  RX: 0x${rx.toString(16)}"+
             if(targets.isEmpty()) " · no connected powered target" else "",targets.size==1 && compatible)
         return rx

@@ -18,6 +18,13 @@ class BusWaveforms {
         endTime=history.values.mapNotNull { it.lastKeyOrNull() }.maxOrNull() ?: 0L
     }
     private fun TreeMap<Long,ExternalDrive?>.lastKeyOrNull()=if(isEmpty()) null else lastKey()
+    /** Retain the last state at the slowest consumer and every future edge. */
+    fun discardBefore(time:Long) {
+        history.values.forEach { events ->
+            val keep=events.floorKey(time)
+            if(keep!=null)while(events.isNotEmpty() && events.firstKey()<keep){events.pollFirstEntry();count--}
+        }
+    }
     fun add(time:Long,key:String,pin:TerminalRef,voltage:Double?,resistance:Double=100.0) {
         val events=history.getOrPut(key){TreeMap()}
         // Sessions may sample the shared slice in a different order; retain recent edge history.

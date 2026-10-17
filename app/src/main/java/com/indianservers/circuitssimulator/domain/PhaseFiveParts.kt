@@ -11,7 +11,7 @@ object PhaseFiveParts {
         Kind.ULTRASONIC to listOf("VCC","GND","TRIG","ECHO"),
         Kind.PIR_SENSOR to listOf("VCC","OUT","GND"),
         Kind.SPI_MEMORY to listOf("VCC","GND","MOSI","MISO","SCK","CS")
-    ) + MotionSensorParts.pinNames
+    ) + MotionSensorParts.pinNames + ChemistrySensorParts.pinNames + GasSensorParts.pinNames + PowerSensorParts.pinNames + CanParts.pinNames + LightSensorParts.pinNames
     private fun p(key:String,label:String,unit:String,default:Double,min:Double,max:Double)=
         Parameter(key,label,unit,default,min,max)
     val definitions=listOf(
@@ -21,7 +21,10 @@ object PhaseFiveParts {
             keywords=listOf("serial","uart","console"),applications=listOf("MCU serial debugging"),
             limitations=listOf("Event-scheduled bytes; physical UART framing metadata is checked.")),
         Definition(Kind.I2C_TEMP_SENSOR,"I²C temperature sensor, default address 0x48",listOf(
-            p("address","I²C address","",0x48.toDouble(),72.0,79.0)),
+            p("address","I²C address","",0x48.toDouble(),72.0,79.0),
+            p("useEnvironment","Use shared environment (0 local, 1 shared)","",1.0,0.0,1.0),
+            p("pullupsEnabled","Module pull-ups enabled","",1.0,0.0,1.0),
+            p("temperatureC","Local temperature","°C",25.0,-55.0,125.0)),
             keywords=listOf("I2C","temperature","LM75"),applications=listOf("Digital temperature sensing"),
             limitations=listOf("LM75B registers with signed 0.5 °C samples, config/shutdown and thresholds; OS pin not exposed.")),
         Definition(Kind.I2C_LCD,"16x2 character LCD reached through a simulated I²C backpack",listOf(
@@ -37,13 +40,18 @@ object PhaseFiveParts {
             p("writeProtect","Write protect (0 off, 1 on)","",0.0,0.0,1.0)),
             keywords=listOf("EEPROM","I2C","memory"),applications=listOf("Non-volatile storage labs"),
             limitations=listOf("AT24C02C: 256 bytes, 8-byte page wrap, 5 ms write busy, configurable WP; wear omitted.")),
-        Definition(Kind.ULTRASONIC,"HC-SR04-style trigger/echo ranger",emptyList(),
+        Definition(Kind.ULTRASONIC,"HC-SR04-style trigger/echo ranger",listOf(
+            p("useEnvironment","Use shared distance (0 local, 1 shared)","",1.0,0.0,1.0),
+            p("distanceCm","Local target distance","cm",100.0,2.0,400.0)),
             keywords=listOf("ultrasonic","distance","HC-SR04"),applications=listOf("Distance measurement"),
-            limitations=listOf("Echo width follows environment distance; acoustic physics are omitted.")),
+            limitations=listOf("Generic educational HC-SR04-style model; exact manufacturer is unverified. Echo uses 58 us/cm; acoustic propagation, crosstalk and target response are omitted.",
+                "Local mode supports independent 2..400 cm inputs per instance; invalid local distance suppresses echo as an explicit simulator fault policy. Shared-environment mode retains its legacy clamped range.")),
         Definition(Kind.PIR_SENSOR,"Passive infrared motion output",listOf(
             p("delayMs","Hold time","ms",3000.0,10.0,300000.0),
             p("warmupMs","Warm-up","ms",30000.0,0.0,60000.0),
-            p("retrigger","Retrigger (0 off, 1 on)","",1.0,0.0,1.0)),
+            p("retrigger","Retrigger (0 off, 1 on)","",1.0,0.0,1.0),
+            p("useEnvironment","Use shared environment (0 local, 1 shared)","",1.0,0.0,1.0),
+            p("motion","Local motion (0 absent, 1 present)","",0.0,0.0,1.0)),
             keywords=listOf("PIR","motion"),applications=listOf("Occupancy sensing"),
             limitations=listOf("3.3 V output after configurable warm-up; held/retriggered motion detection.")),
         Definition(Kind.SPI_MEMORY,"W25Q32JV 4 MiB SPI NOR flash, 3.3 V",emptyList(),
@@ -51,5 +59,5 @@ object PhaseFiveParts {
             limitations=listOf("JEDEC ID, WEL/BUSY, program, erase, protection and persistence; quad mode omitted."))
     ).map { def -> com.indianservers.circuitssimulator.firmware.EmbeddedProfiles.profiles[def.kind]?.let { profile ->
         def.copy(datasheet=profile.datasheet.copy(physicalPinOrder=pinNames.getValue(def.kind)),limitations=def.limitations+profile.limitations)
-    } ?: def } + MotionSensorParts.definitions
+    } ?: def } + MotionSensorParts.definitions + ChemistrySensorParts.definitions + GasSensorParts.definitions + PowerSensorParts.definitions + CanParts.definitions + LightSensorParts.definitions
 }

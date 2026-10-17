@@ -1,0 +1,6 @@
+{
+  "application": "Smart agriculture and irrigation",
+  "applicationNumber": 2,
+  "hasExecutableDesign": false,
+  "board": "ARDUINO_UNO"
+}

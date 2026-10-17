@@ -1,0 +1,6 @@
+{
+  "application": "Advanced robotics sensor integration",
+  "applicationNumber": 20,
+  "hasExecutableDesign": true,
+  "board": "ESP32_S2_SAOLA"
+}

@@ -84,6 +84,8 @@ class DcSolver {
         var lastUpdate=Double.POSITIVE_INFINITY
         var lastIndex=0
         var iterations=0
+        var previousMatrix:Array<DoubleArray>?=null
+        var previousVector:DoubleArray?=null
         for (iteration in 0 until circuit.settings.maxIterations) {
             iterations=iteration+1
             val a = Array(size) { DoubleArray(size) }
@@ -248,7 +250,11 @@ class DcSolver {
             val delta = next.indices.maxOf { abs(next[it] - guess[it]) }
             lastUpdate=delta
             lastIndex=next.indices.maxBy { abs(next[it]-guess[it]) }
-            guess = DoubleArray(size) { .65 * next[it] + .35 * guess[it] }
+            // Recheck stamps after taking the exact solution of an unchanged system.
+            val unchanged=previousVector?.contentEquals(b)==true &&
+                previousMatrix?.let { prior -> a.indices.all { a[it].contentEquals(prior[it]) } }==true
+            previousMatrix=a;previousVector=b
+            guess = if(unchanged) next else DoubleArray(size) { .65 * next[it] + .35 * guess[it] }
             if (delta < circuit.settings.tolerance) { guess = next; converged = true; break }
         }
         val likely=parts.firstOrNull { p -> p.kind in setOf(Kind.LED,Kind.DIODE,Kind.RECTIFIER,

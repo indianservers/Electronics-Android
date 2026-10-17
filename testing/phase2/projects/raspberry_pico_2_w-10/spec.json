@@ -1,0 +1,134 @@
+{
+  "application": "Smart electrical energy monitoring",
+  "applicationNumber": 10,
+  "hasExecutableDesign": true,
+  "board": "RASPBERRY_PICO_2_W",
+  "classification": "NOT_EXECUTED",
+  "scope": "Ten real shunt/resistor-load INA219 channels. No AC metering/power factor, PV curves or electrochemistry. Ten identical sensor parts do not establish sensor diversity.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://datasheets.raspberrypi.com/picow/pico-2-w-datasheet.pdf",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "sensorInstances": 10,
+  "uniqueSensorPartCount": 1,
+  "uniqueSensorTechnologyCount": 1,
+  "sensorInterfaces": [
+    "I2C"
+  ],
+  "sensorKinds": [
+    "INA219_POWER"
+  ],
+  "sensors": [
+    {
+      "id": "S0",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 64
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "INA219",
+      "source": "https://www.ti.com/lit/ds/symlink/ina219.pdf"
+    },
+    {
+      "id": "S1",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 65
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "INA219",
+      "source": "https://www.ti.com/lit/ds/symlink/ina219.pdf"
+    },
+    {
+      "id": "S2",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 66
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "INA219",
+      "source": "https://www.ti.com/lit/ds/symlink/ina219.pdf"
+    },
+    {
+      "id": "S3",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 67
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "INA219",
+      "source": "https://www.ti.com/lit/ds/symlink/ina219.pdf"
+    },
+    {
+      "id": "S4",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 68
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "INA219",
+      "source": "https://www.ti.com/lit/ds/symlink/ina219.pdf"
+    },
+    {
+      "id": "S5",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 69
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "INA219",
+      "source": "https://www.ti.com/lit/ds/symlink/ina219.pdf"
+    },
+    {
+      "id": "S6",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 70
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "INA219",
+      "source": "https://www.ti.com/lit/ds/symlink/ina219.pdf"
+    },
+    {
+      "id": "S7",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 71
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "INA219",
+      "source": "https://www.ti.com/lit/ds/symlink/ina219.pdf"
+    },
+    {
+      "id": "S8",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 72
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "INA219",
+      "source": "https://www.ti.com/lit/ds/symlink/ina219.pdf"
+    },
+    {
+      "id": "S9",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 73
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "INA219",
+      "source": "https://www.ti.com/lit/ds/symlink/ina219.pdf"
+    }
+  ],
+  "circuitSha256": "ce8b0b1b2a729e1fd3031442b12481097405fc386255009c4ddf79e59c1ca07a",
+  "firmwareRuntime": "ARDUINO_SUBSET, not CPU emulation",
+  "electricalAssumptions": "External ideal rails; explicit wiring/pull-ups/decoupling/dividers/shunts as present. Educational peripheral supply loads are not datasheet power models.",
+  "oracleSource": "PhaseTwoLightValidation.kt / PhaseTwoParkingValidation.kt / AdvancedProjectChecks.kt for individually recorded suites; legacy validators for inherited subsets",
+  "unexecutedFaults": [
+    "Full regulator-current-limit qualification",
+    "Physical thermal damage and semiconductor tolerance distributions",
+    "External hardware comparison"
+  ]
+}

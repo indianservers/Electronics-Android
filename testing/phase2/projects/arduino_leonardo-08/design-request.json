@@ -1,0 +1,6 @@
+{
+  "application": "Medical environmental monitoring",
+  "applicationNumber": 8,
+  "hasExecutableDesign": true,
+  "board": "ARDUINO_LEONARDO"
+}

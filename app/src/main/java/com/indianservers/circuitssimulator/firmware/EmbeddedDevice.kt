@@ -21,7 +21,8 @@ object EmbeddedProfiles {
         family,setOf(interfaceType,PeripheralInterface.POWER),ElectricalProfile(range,range.endInclusive,pullup,clock),
         DatasheetMetadata(manufacturer=manufacturer,partNumber=family,referenceUrl=url,
             packageName="Simulated module",lastVerifiedUtc=if(manufacturer=="Generic module family") null else "2026-10-04"),limits.toList())
-    val profiles=mapOf(
+    val profiles=mapOf(Kind.BH1750_LIGHT to PeripheralProfile("BH1750FVI",setOf(PeripheralInterface.I2C,PeripheralInterface.POWER),
+        ElectricalProfile(2.4..3.6,3.6,null,400000),LightSensorParts.metadata,LightSensorParts.limitations)) + mapOf(
         Kind.I2C_TEMP_SENSOR to profile("LM75B module",PeripheralInterface.I2C,3.0..5.5,"Texas Instruments",
             "https://www.ti.com/lit/ds/symlink/lm75b.pdf",4700.0,400000,"OS output is not exposed by this module."),
         Kind.I2C_EEPROM to profile("AT24C02C module",PeripheralInterface.I2C,1.7..5.5,"Microchip",
@@ -38,7 +39,12 @@ object EmbeddedProfiles {
             "https://www.sparkfun.com/products/15569",null,0,"Acoustic propagation is reduced to distance-dependent echo timing."),
         Kind.PIR_SENSOR to profile("HC-SR501",PeripheralInterface.GPIO,4.5..12.0,"Generic module family",
             "https://www.mpja.com/download/31227sc.pdf",null,0,"Warm-up and retrigger are modeled; field geometry and thermal noise omitted.")
-    ) + MotionSensorParts.profiles.mapValues { (_,sensor) -> PeripheralProfile(sensor.part,
+    ) + mapOf(Kind.MCP2515_CAN to PeripheralProfile("MCP2515 / MCP2562FD",setOf(PeripheralInterface.SPI,PeripheralInterface.POWER),
+        ElectricalProfile(2.7..5.5,5.5,null,10000000),CanParts.metadata,CanParts.limitations)) + mapOf(Kind.INA219_POWER to PeripheralProfile("INA219",setOf(PeripheralInterface.I2C,PeripheralInterface.POWER),
+        ElectricalProfile(3.0..5.5,6.0),PowerSensorParts.metadata,PowerSensorParts.limitations)) + mapOf(Kind.SCD41_CO2 to PeripheralProfile("SCD41",setOf(PeripheralInterface.I2C,PeripheralInterface.POWER),
+        ElectricalProfile(2.4..5.5,5.5),GasSensorParts.metadata,GasSensorParts.limitations)) + ChemistrySensorParts.profiles.mapValues { (_,sensor) -> PeripheralProfile(sensor.part,
+        setOf(PeripheralInterface.I2C,PeripheralInterface.POWER),ElectricalProfile(3.3..5.5,5.5),
+        ChemistrySensorParts.metadata(sensor),ChemistrySensorParts.limitations) } + MotionSensorParts.profiles.mapValues { (_,sensor) -> PeripheralProfile(sensor.part,
         setOf(PeripheralInterface.I2C,PeripheralInterface.POWER),ElectricalProfile(sensor.minimumSupply..3.6,3.6),
         MotionSensorParts.metadata(sensor),MotionSensorParts.limitations) }
 }

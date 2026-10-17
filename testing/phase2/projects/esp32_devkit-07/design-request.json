@@ -1,0 +1,6 @@
+{
+  "application": "Smart building automation",
+  "applicationNumber": 7,
+  "hasExecutableDesign": true,
+  "board": "ESP32_DEVKIT"
+}

@@ -1,0 +1,19 @@
+{
+  "application": "Factory production monitoring",
+  "applicationNumber": 14,
+  "hasExecutableDesign": false,
+  "board": "ARDUINO_LEONARDO",
+  "classification": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "scope": "No independently validated conveyor/item-count/encoder/proximity production-flow design. Environmental monitoring alone does not establish factory production monitoring.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://docs.arduino.cc/resources/pinouts/A000057-full-pinout.pdf",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "blocker": "No independently validated conveyor/item-count/encoder/proximity production-flow design. Environmental monitoring alone does not establish factory production monitoring.",
+  "sensorInstances": 0,
+  "uniqueSensorPartCount": 0,
+  "uniqueSensorTechnologyCount": 0,
+  "sensorInterfaces": []
+}

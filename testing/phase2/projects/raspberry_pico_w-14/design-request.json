@@ -1,0 +1,6 @@
+{
+  "application": "Factory production monitoring",
+  "applicationNumber": 14,
+  "hasExecutableDesign": false,
+  "board": "RASPBERRY_PICO_W"
+}

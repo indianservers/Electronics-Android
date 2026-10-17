@@ -1,0 +1,186 @@
+{
+  "application": "Flood and disaster early warning",
+  "applicationNumber": 19,
+  "hasExecutableDesign": true,
+  "board": "ARDUINO_MEGA",
+  "classification": "NOT_EXECUTED",
+  "scope": "Acceleration/seismic thresholds and differential-pressure hydrostatic depth calculation. No flood/seismic propagation prediction.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://docs.arduino.cc/resources/pinouts/A000067-full-pinout.pdf",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "sensorInstances": 11,
+  "uniqueSensorPartCount": 4,
+  "uniqueSensorTechnologyCount": 4,
+  "sensorInterfaces": [
+    "ADC",
+    "I2C"
+  ],
+  "sensorKinds": [
+    "ADXL345_ACCEL",
+    "I2C_TEMP_SENSOR",
+    "LSM6DSOX_IMU",
+    "MPX5010_PRESSURE"
+  ],
+  "sensors": [
+    {
+      "id": "T0",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 72,
+        "temperatureC": 25,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T1",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 73,
+        "temperatureC": 25.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T2",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 74,
+        "temperatureC": 26,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T3",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 75,
+        "temperatureC": 26.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T4",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 76,
+        "temperatureC": 27,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T5",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 77,
+        "temperatureC": 27.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T6",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 78,
+        "temperatureC": 28,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T7",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 79,
+        "temperatureC": 28.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "ACC",
+      "kind": "ADXL345_ACCEL",
+      "stimuli": {
+        "accelYG": 0,
+        "accelXG": 0,
+        "address": 83,
+        "accelZG": 1,
+        "vibrationFrequencyHz": 2,
+        "vibrationAmplitudeG": 0
+      },
+      "manufacturer": "Analog Devices",
+      "part": "ADXL345",
+      "source": "https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf"
+    },
+    {
+      "id": "IMU",
+      "kind": "LSM6DSOX_IMU",
+      "stimuli": {
+        "address": 106,
+        "gyroYDps": 0,
+        "gyroZDps": 0,
+        "gyroXDps": 0,
+        "accelYG": 0,
+        "accelXG": 0,
+        "accelZG": 1,
+        "vibrationFrequencyHz": 2,
+        "vibrationAmplitudeG": 0
+      },
+      "manufacturer": "STMicroelectronics",
+      "part": "LSM6DSOX",
+      "source": "https://www.st.com/resource/en/datasheet/lsm6dsox.pdf"
+    },
+    {
+      "id": "ANALOG",
+      "kind": "MPX5010_PRESSURE",
+      "stimuli": {
+        "temperatureC": 25,
+        "pressureKpa": 2
+      },
+      "manufacturer": "NXP Semiconductors",
+      "part": "MPX5010",
+      "source": "https://www.nxp.com/docs/en/data-sheet/MPX5010.pdf"
+    }
+  ],
+  "circuitSha256": "900d1218dae6bf7b732348fd3d326a45dd301b92a2ce2c3945ba8f5756a0dfaa",
+  "firmwareRuntime": "ARDUINO_SUBSET, not CPU emulation",
+  "electricalAssumptions": "External ideal rails; explicit wiring/pull-ups/decoupling/dividers/shunts as present. Educational peripheral supply loads are not datasheet power models.",
+  "oracleSource": "PhaseTwoLightValidation.kt / PhaseTwoParkingValidation.kt / AdvancedProjectChecks.kt for individually recorded suites; legacy validators for inherited subsets",
+  "unexecutedFaults": [
+    "Full regulator-current-limit qualification",
+    "Physical thermal damage and semiconductor tolerance distributions",
+    "External hardware comparison"
+  ]
+}

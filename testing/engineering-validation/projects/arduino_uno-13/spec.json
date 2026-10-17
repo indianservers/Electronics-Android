@@ -1,0 +1,77 @@
+{
+  "modeledSensors": 10,
+  "normalTemperaturesC": [
+    30.75,
+    31.25,
+    31.75,
+    32.25,
+    32.75,
+    33.25,
+    33.75,
+    34.25
+  ],
+  "expectedNormalOutputs": {
+    "alarm": 0,
+    "faults": 0,
+    "motion1": 0,
+    "motion0": 0
+  },
+  "supplyBudget": "External logic rail and 5 V rail, each allocated 100 mA; calculated model loads below 20 mA. Not a regulator/thermal model.",
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO"
+  ],
+  "fullDomainStatus": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "physicalAccuracyClaim": false,
+  "quorum": 1,
+  "highC": 85,
+  "faultInputs": [
+    "normal",
+    "minimum",
+    "maximum",
+    "out-of-range",
+    "disconnected",
+    "wrong-supply",
+    "communication-collision",
+    "delayed-availability-and-recovery",
+    "invalid-reading",
+    "simultaneous"
+  ],
+  "revision": "Rev3",
+  "nominalResolutionC": 0.5,
+  "motionPins": [
+    "D2",
+    "D3"
+  ],
+  "datasheetRevision": "SNIS153D",
+  "faultStimuli": {
+    "pirSupplyLossV": 2,
+    "sensorPowerLossV": 0,
+    "wrongSupplyV": 2,
+    "pirWarmupMs": 60000,
+    "outOfRangeC": 126,
+    "invalidReading": "NaN",
+    "minimumC": -55,
+    "collisionAddress": 72,
+    "maximumC": 125
+  },
+  "scope": "Vehicle thermal-zone and cabin-motion warning; CAN diagnostics unsupported",
+  "uart": "Serial",
+  "boardId": "ARDUINO_UNO",
+  "outputPin": "D4",
+  "id": "arduino_uno-13",
+  "expectedNormalReadingsC": [
+    31,
+    31.5,
+    32,
+    32.5,
+    33,
+    33.5,
+    34,
+    34.5
+  ],
+  "modelToleranceC": 0,
+  "lowC": -20,
+  "datasheet": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+}

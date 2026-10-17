@@ -1,0 +1,19 @@
+{
+  "application": "Factory production monitoring",
+  "applicationNumber": 14,
+  "hasExecutableDesign": false,
+  "board": "WEMOS_D1_MINI",
+  "classification": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "scope": "No independently validated conveyor/item-count/encoder/proximity production-flow design. Environmental monitoring alone does not establish factory production monitoring.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://www.wemos.cc/en/latest/d1/d1_mini.html",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "blocker": "No independently validated conveyor/item-count/encoder/proximity production-flow design. Environmental monitoring alone does not establish factory production monitoring.",
+  "sensorInstances": 0,
+  "uniqueSensorPartCount": 0,
+  "uniqueSensorTechnologyCount": 0,
+  "sensorInterfaces": []
+}

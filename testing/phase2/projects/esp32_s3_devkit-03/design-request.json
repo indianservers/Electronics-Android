@@ -1,0 +1,6 @@
+{
+  "application": "Smart greenhouse automation",
+  "applicationNumber": 3,
+  "hasExecutableDesign": true,
+  "board": "ESP32_S3_DEVKIT"
+}

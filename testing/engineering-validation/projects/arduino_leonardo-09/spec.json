@@ -1,0 +1,77 @@
+{
+  "modeledSensors": 10,
+  "normalTemperaturesC": [
+    25.75,
+    26.25,
+    26.75,
+    27.25,
+    27.75,
+    28.25,
+    28.75,
+    29.25
+  ],
+  "expectedNormalOutputs": {
+    "alarm": 0,
+    "faults": 0,
+    "motion1": 0,
+    "motion0": 0
+  },
+  "supplyBudget": "External logic rail and 5 V rail, each allocated 100 mA; calculated model loads below 20 mA. Not a regulator/thermal model.",
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO"
+  ],
+  "fullDomainStatus": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "physicalAccuracyClaim": false,
+  "quorum": 1,
+  "highC": 55,
+  "faultInputs": [
+    "normal",
+    "minimum",
+    "maximum",
+    "out-of-range",
+    "disconnected",
+    "wrong-supply",
+    "communication-collision",
+    "delayed-availability-and-recovery",
+    "invalid-reading",
+    "simultaneous"
+  ],
+  "revision": "A000057",
+  "nominalResolutionC": 0.5,
+  "motionPins": [
+    "A0",
+    "A1"
+  ],
+  "datasheetRevision": "SNIS153D",
+  "faultStimuli": {
+    "pirSupplyLossV": 2,
+    "sensorPowerLossV": 0,
+    "wrongSupplyV": 2,
+    "pirWarmupMs": 60000,
+    "outOfRangeC": 126,
+    "invalidReading": "NaN",
+    "minimumC": -55,
+    "collisionAddress": 72,
+    "maximumC": 125
+  },
+  "scope": "Eight-zone heat alarm and intrusion; gas detection unsupported",
+  "uart": "Serial1",
+  "boardId": "ARDUINO_LEONARDO",
+  "outputPin": "A2",
+  "id": "arduino_leonardo-09",
+  "expectedNormalReadingsC": [
+    26,
+    26.5,
+    27,
+    27.5,
+    28,
+    28.5,
+    29,
+    29.5
+  ],
+  "modelToleranceC": 0,
+  "lowC": 0,
+  "datasheet": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+}

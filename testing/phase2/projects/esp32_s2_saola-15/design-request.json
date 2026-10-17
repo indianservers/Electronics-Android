@@ -1,0 +1,6 @@
+{
+  "application": "Fire detection and alarm system",
+  "applicationNumber": 15,
+  "hasExecutableDesign": true,
+  "board": "ESP32_S2_SAOLA"
+}

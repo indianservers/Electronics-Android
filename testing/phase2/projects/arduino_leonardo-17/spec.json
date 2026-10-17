@@ -1,0 +1,163 @@
+{
+  "application": "Vehicle diagnostics and monitoring",
+  "applicationNumber": 17,
+  "hasExecutableDesign": true,
+  "board": "ARDUINO_LEONARDO",
+  "classification": "NOT_EXECUTED",
+  "scope": "Two actual MCUs exchange custom standard CAN frames. No OBD-II PID implementation, full CAN error/arbitration model or automotive qualification.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://docs.arduino.cc/resources/pinouts/A000057-full-pinout.pdf",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "sensorInstances": 10,
+  "uniqueSensorPartCount": 3,
+  "uniqueSensorTechnologyCount": 3,
+  "sensorInterfaces": [
+    "ADC",
+    "I2C"
+  ],
+  "sensorKinds": [
+    "I2C_TEMP_SENSOR",
+    "MPX5010_PRESSURE",
+    "ZE07_CO"
+  ],
+  "sensors": [
+    {
+      "id": "T0",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 72,
+        "temperatureC": 30,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T1",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 73,
+        "temperatureC": 32,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T2",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 74,
+        "temperatureC": 34,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T3",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 75,
+        "temperatureC": 36,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T4",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 76,
+        "temperatureC": 38,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T5",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 77,
+        "temperatureC": 40,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T6",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 78,
+        "temperatureC": 42,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T7",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 79,
+        "temperatureC": 44,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "CO",
+      "kind": "ZE07_CO",
+      "stimuli": {
+        "temperatureC": 25,
+        "coPpm": 0
+      },
+      "manufacturer": "Winsen",
+      "part": "ZE07-CO",
+      "source": "https://www.winsen-sensor.com/d/files/manual/ze07-co.pdf"
+    },
+    {
+      "id": "PRESSURE",
+      "kind": "MPX5010_PRESSURE",
+      "stimuli": {
+        "temperatureC": 25,
+        "pressureKpa": 2
+      },
+      "manufacturer": "NXP Semiconductors",
+      "part": "MPX5010",
+      "source": "https://www.nxp.com/docs/en/data-sheet/MPX5010.pdf"
+    }
+  ],
+  "circuitSha256": "677ffe3fce7b313ff02cf9afc4c70bdf07e4372c5a73bc0ec6530a458d1a719a",
+  "firmwareRuntime": "ARDUINO_SUBSET, not CPU emulation",
+  "electricalAssumptions": "External ideal rails; explicit wiring/pull-ups/decoupling/dividers/shunts as present. Educational peripheral supply loads are not datasheet power models.",
+  "oracleSource": "PhaseTwoLightValidation.kt / PhaseTwoParkingValidation.kt / AdvancedProjectChecks.kt for individually recorded suites; legacy validators for inherited subsets",
+  "unexecutedFaults": [
+    "Full regulator-current-limit qualification",
+    "Physical thermal damage and semiconductor tolerance distributions",
+    "External hardware comparison"
+  ]
+}

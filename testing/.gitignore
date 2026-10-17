@@ -1,0 +1,31 @@
+# Generated validation evidence stays local.
+*
+!.gitignore
+!engineering-validation/
+!phase2/
+!engineering-validation/*.py
+!engineering-validation/*.ps1
+!engineering-validation/*.sh
+!engineering-validation/*.mjs
+!engineering-validation/projects/
+!engineering-validation/projects/**
+!engineering-validation/domain-projects/
+!engineering-validation/domain-projects/**
+!engineering-validation/domain-assets/
+!engineering-validation/domain-assets/**
+!phase2/*.py
+!phase2/*.ps1
+!phase2/*.sh
+!phase2/*.mjs
+!phase2/assets/
+!phase2/assets/**
+!phase2/projects/
+!phase2/projects/**
+!phase2/native-sketches/
+!phase2/native-sketches/**
+
+# Per-run results generated beside reusable fixtures.
+**/result.txt
+**/scope.txt
+**/*results.json
+**/android-request.json

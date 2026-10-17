@@ -24,7 +24,9 @@ object MotionSensorParts {
     val limitations=listOf(
         "Four-pin simulator I2C carrier, not a commercial breakout pinout. VDD and VDDIO are tied to VCC; no regulator or level shifter. Maximum operating supply is 3.6 V. External SDA/SCL pull-ups are required.",
         "Nominal register-level polling model: identity, power/axis enable, range, byte order, and coherent burst data. Motion values are per-device properties in chip-axis coordinates; acceleration includes gravity (stationary default Z = +1 g).",
+        "Optional X-axis sinusoidal acceleration is sampled at simulation read time; this is an input fixture, not mechanical resonance physics. Sampling/aliasing follows firmware polling; no frequency reconstruction is implied.",
         "Samples refresh on reads, not at physical ODR times. Noise, offset drift, filters, startup delay, FIFO, interrupts, self-test, SPI, I3C and embedded sensor fusion/AI are not simulated. Unsupported register writes are rejected; unsupported reads return no data.",
+        "Nonfinite motion stimuli produce no sample as an explicit simulator fault-injection policy; identity/control registers remain readable. This is not a manufacturer hardware-fault guarantee.",
         "Supply load is an educational 8 kOhm resistance, not a datasheet current-consumption model. Manufacturer ratings describe the chip; damage is not predicted."
     )
     fun metadata(profile:Profile)=DatasheetMetadata(manufacturer=profile.manufacturer,partNumber=profile.part,
@@ -39,7 +41,9 @@ object MotionSensorParts {
         val accel=if(profile.accel) listOf("X","Y","Z").map { axis ->
             Parameter("accel${axis}G","Acceleration $axis","g",if(axis=="Z")1.0 else 0.0,-16.0,16.0) } else emptyList()
         Definition(profile.kind,"${profile.part} ${if(profile.gyro && profile.accel) "6-axis gyroscope / accelerometer" else if(profile.gyro) "3-axis gyroscope" else "3-axis accelerometer"}; I2C polling carrier",
-            listOf(address)+gyro+accel,datasheet=metadata(profile),keywords=listOf("motion","MEMS","I2C",profile.part)+
+            listOf(address)+gyro+accel+(if(profile.accel)listOf(
+                Parameter("vibrationAmplitudeG","X-axis sinusoidal acceleration amplitude","g",0.0,0.0,16.0),
+                Parameter("vibrationFrequencyHz","Sinusoidal stimulus frequency","Hz",2.0,.01,400.0)) else emptyList()),datasheet=metadata(profile),keywords=listOf("motion","MEMS","I2C",profile.part)+
                 (if(profile.gyro) listOf("gyro","gyroscope","rotation","angular velocity") else emptyList())+
                 (if(profile.accel) listOf("accelerometer","acceleration","tilt") else emptyList()),
             applications=listOf("Read signed axis samples through board I2C firmware"),limitations=limitations)

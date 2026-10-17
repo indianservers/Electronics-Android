@@ -1,0 +1,6 @@
+{
+  "application": "Smart parking management",
+  "applicationNumber": 13,
+  "hasExecutableDesign": true,
+  "board": "ARDUINO_NANO"
+}

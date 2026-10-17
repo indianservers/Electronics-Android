@@ -104,7 +104,8 @@ class ComplexFiftyScenariosTest(private val name:String, private val family:Int,
 
     private fun fusion() {
         val b=Bench(name,variant>=5);val a=b.board("SENSE");val z=b.board("CONTROL")
-        val kinds=IotSensorParts.profiles.keys.toList()
+        // This fixture varies temperature; CO and pressure have independent stimuli.
+        val kinds=IotSensorParts.profiles.values.filter {it.stimulusKey=="temperatureC"}.map {it.kind}
         val first=kinds[variant%kinds.size];val second=kinds[(variant+3)%kinds.size]
         val s1=b.sensor(a,"A0","T1",first,25.0);val s2=b.sensor(a,"A1","T2",second,25.0)
         val p1=b.pot(z,"A0","MOISTURE",.2);val p2=b.pot(z,"A1","SETPOINT",.8)

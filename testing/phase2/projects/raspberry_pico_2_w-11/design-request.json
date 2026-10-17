@@ -1,0 +1,6 @@
+{
+  "application": "Battery monitoring and protection",
+  "applicationNumber": 11,
+  "hasExecutableDesign": false,
+  "board": "RASPBERRY_PICO_2_W"
+}

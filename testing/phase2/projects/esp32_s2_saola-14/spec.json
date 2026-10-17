@@ -1,0 +1,19 @@
+{
+  "application": "Factory production monitoring",
+  "applicationNumber": 14,
+  "hasExecutableDesign": false,
+  "board": "ESP32_S2_SAOLA",
+  "classification": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "scope": "No independently validated conveyor/item-count/encoder/proximity production-flow design. Environmental monitoring alone does not establish factory production monitoring.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32s2/hw-reference/esp32s2/user-guide-saola-1-v1.2.html",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "blocker": "No independently validated conveyor/item-count/encoder/proximity production-flow design. Environmental monitoring alone does not establish factory production monitoring.",
+  "sensorInstances": 0,
+  "uniqueSensorPartCount": 0,
+  "uniqueSensorTechnologyCount": 0,
+  "sensorInterfaces": []
+}

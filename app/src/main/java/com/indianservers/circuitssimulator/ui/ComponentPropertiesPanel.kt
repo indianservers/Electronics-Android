@@ -117,7 +117,7 @@ internal fun ComponentPropertiesPanel(part:PlacedComponent,state:SimulatorState,
                                 val currents=threeTerminalCurrents(part,DoubleArray(3) { state.result.nodeVoltages[TerminalRef(part.id,it)] ?: 0.0 })
                                 currents.forEachIndexed { i,current -> Text("${ComponentPins.name(part,i)} current: ${EngineeringUnits.format(current,"A")}",color=Mint,fontSize=11.sp) }
                             }
-                            if(part.kind.category=="Embedded" || part.kind in MotionSensorParts.profiles) PeripheralInspector(part,state,model)
+                            if(part.kind.category=="Embedded" || part.kind in MotionSensorParts.profiles || part.kind in ChemistrySensorParts.profiles || part.kind in GasSensorParts.pinNames || part.kind in PowerSensorParts.pinNames || part.kind in LightSensorParts.pinNames) PeripheralInspector(part,state,model)
                             if(part.kind==Kind.FUNCTION_GENERATOR) SignalChart(state.transient?.traces?.get(part.id),state.elapsedSeconds,Modifier.fillMaxWidth().height(100.dp))
                         }
                         if(definition.parameters.isNotEmpty()) TextButton(onClick={model.resetComponentProperties(part.id)}) { Text("Reset values") }
@@ -144,7 +144,7 @@ internal fun ComponentPropertiesPanel(part:PlacedComponent,state:SimulatorState,
                         source.packageName?.let { Text("Package: $it",color=Muted,fontSize=12.sp) }
                         source.revision?.let { Text("Document revision: $it",color=Muted,fontSize=11.sp) }
                         source.sourceNotes?.let { Text(it,color=Muted,fontSize=11.sp) }
-                        if(source.physicalPinOrder.isNotEmpty() && !part.kind.isBoard) Text("${if(part.kind in MotionSensorParts.profiles) "Simulator carrier header order" else "Package order"}: ${source.physicalPinOrder.joinToString(" · ")}. Electrical terminals are identified by their names in Pins.",color=Muted,fontSize=11.sp)
+                        if(source.physicalPinOrder.isNotEmpty() && !part.kind.isBoard) Text("${if(source.packageName?.contains("simulated",ignoreCase=true)==true) "Simulator carrier header order" else "Package order"}: ${source.physicalPinOrder.joinToString(" · ")}. Electrical terminals are identified by their names in Pins.",color=Muted,fontSize=11.sp)
                         definition.limitations.forEach { Text(it,color=Muted,fontSize=11.sp) }
                         if(part.kind.isBoard) {
                             val board=BoardRegistry.boards.getValue(part.kind)

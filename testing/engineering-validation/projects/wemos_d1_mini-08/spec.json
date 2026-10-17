@@ -1,0 +1,77 @@
+{
+  "modeledSensors": 10,
+  "normalTemperaturesC": [
+    18.25,
+    18.75,
+    19.25,
+    19.75,
+    20.25,
+    20.75,
+    21.25,
+    21.75
+  ],
+  "expectedNormalOutputs": {
+    "alarm": 0,
+    "faults": 0,
+    "motion1": 0,
+    "motion0": 0
+  },
+  "supplyBudget": "External logic rail and 5 V rail, each allocated 100 mA; calculated model loads below 20 mA. Not a regulator/thermal model.",
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO"
+  ],
+  "fullDomainStatus": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "physicalAccuracyClaim": false,
+  "quorum": 2,
+  "highC": 35,
+  "faultInputs": [
+    "normal",
+    "minimum",
+    "maximum",
+    "out-of-range",
+    "disconnected",
+    "wrong-supply",
+    "communication-collision",
+    "delayed-availability-and-recovery",
+    "invalid-reading",
+    "simultaneous"
+  ],
+  "revision": "V4-class",
+  "nominalResolutionC": 0.5,
+  "motionPins": [
+    "D0",
+    "D5"
+  ],
+  "datasheetRevision": "SNIS153D",
+  "faultStimuli": {
+    "pirSupplyLossV": 2,
+    "sensorPowerLossV": 0,
+    "wrongSupplyV": 2,
+    "pirWarmupMs": 60000,
+    "outOfRangeC": 126,
+    "invalidReading": "NaN",
+    "minimumC": -55,
+    "collisionAddress": 72,
+    "maximumC": 125
+  },
+  "scope": "Tank-zone thermal and access safety subsystem; water chemistry unsupported",
+  "uart": "Serial",
+  "boardId": "WEMOS_D1_MINI",
+  "outputPin": "D6",
+  "id": "wemos_d1_mini-08",
+  "expectedNormalReadingsC": [
+    18.5,
+    19,
+    19.5,
+    20,
+    20.5,
+    21,
+    21.5,
+    22
+  ],
+  "modelToleranceC": 0,
+  "lowC": 5,
+  "datasheet": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+}

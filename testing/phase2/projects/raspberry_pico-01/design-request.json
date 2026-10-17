@@ -1,0 +1,6 @@
+{
+  "application": "Industrial environmental monitoring",
+  "applicationNumber": 1,
+  "hasExecutableDesign": true,
+  "board": "RASPBERRY_PICO"
+}

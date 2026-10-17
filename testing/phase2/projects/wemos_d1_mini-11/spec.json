@@ -1,0 +1,19 @@
+{
+  "application": "Battery monitoring and protection",
+  "applicationNumber": 11,
+  "hasExecutableDesign": false,
+  "board": "WEMOS_D1_MINI",
+  "classification": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "scope": "Cell electrochemistry/state estimation, balancing and an independently verified protection cutoff/feedback topology are absent. Ideal DC sources plus INA219 charge arithmetic do not establish a battery protection system.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://www.wemos.cc/en/latest/d1/d1_mini.html",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "blocker": "Cell electrochemistry/state estimation, balancing and an independently verified protection cutoff/feedback topology are absent. Ideal DC sources plus INA219 charge arithmetic do not establish a battery protection system.",
+  "sensorInstances": 0,
+  "uniqueSensorPartCount": 0,
+  "uniqueSensorTechnologyCount": 0,
+  "sensorInterfaces": []
+}

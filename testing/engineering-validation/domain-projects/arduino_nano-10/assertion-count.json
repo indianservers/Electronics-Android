@@ -1,0 +1,27 @@
+{
+  "circuitSha256": "4d73d1bbe08e77eb5f4633edce7d759a3ae2ab1da16d372fbc61be954e131bdc",
+  "assertions": 377,
+  "scenarios": [
+    "normal-solved-shunts,PASSED,155000",
+    "independent-load-0,PASSED,35000",
+    "independent-load-1,PASSED,35000",
+    "independent-load-2,PASSED,35000",
+    "independent-load-3,PASSED,35000",
+    "independent-load-4,PASSED,35000",
+    "independent-load-5,PASSED,35000",
+    "independent-load-6,PASSED,35000",
+    "independent-load-7,PASSED,35000",
+    "independent-load-8,PASSED,35000",
+    "independent-load-9,PASSED,35000",
+    "missing-calibration,PASSED,35000",
+    "under-voltage,PASSED,35000",
+    "over-voltage,PASSED,35000",
+    "sense-outside-common-mode,PASSED,35000",
+    "logic-power-loss,PASSED,25000",
+    "disconnected-shunt-monitor,PASSED,35000",
+    "address-collision,PASSED,25000",
+    "save-reload,PASSED,35000",
+    "reset,PASSED,70000"
+  ],
+  "status": "PASSED_DOMAIN_MONITORING"
+}

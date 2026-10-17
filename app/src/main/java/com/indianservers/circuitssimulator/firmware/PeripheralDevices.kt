@@ -10,23 +10,37 @@ class I2cDeviceModel(var address:Int,override val ownerId:String,val kind:Kind,
     var powered=false
     var busyUntil=0L
     var writeProtected=false
+    var localTemperature:Double?=null
     val oled=OledController()
     val lcd=LcdBackpack()
     val motion=if(kind in MotionSensorParts.profiles) MotionSensorModel(kind) else null
+    val powerMonitor=if(kind==Kind.INA219_POWER) Ina219Model() else null
+    val gas=if(kind==Kind.SCD41_CO2) Scd41Model() else null
+    val light=if(kind==Kind.BH1750_LIGHT) Bh1750Model() else null
+    val chemistry=if(kind in ChemistrySensorParts.profiles) ChemistrySensorModel(kind) else null
     private var temperatureWord=25 shl 8
     override fun powerChanged(powered:Boolean,timeMicros:Long) {
         if(this.powered && !powered) {
             pointer=0;busyUntil=0;display.clear();oled.reset();lcd.reset()
             if(kind!=Kind.I2C_EEPROM) memory.clear()
             motion?.reset()
+            chemistry?.reset()
+            gas?.reset()
+            light?.reset()
+            powerMonitor?.reset(timeMicros)
         }
         if(!this.powered && powered && kind==Kind.I2C_TEMP_SENSOR) {
             memory[1]=0;memory[2]=75 shl 8;memory[3]=80 shl 8
         }
+        if(!this.powered && powered)powerMonitor?.reset(timeMicros)
         this.powered=powered
     }
     fun ready(time:Long)=time>=busyUntil
     fun write(bytes:List<Int>,timeMicros:Long=0):Boolean {
+        powerMonitor?.let { return powered && it.write(bytes,timeMicros) }
+        gas?.let { return powered && it.write(bytes,timeMicros) }
+        light?.let { return powered && it.write(bytes,timeMicros) }
+        chemistry?.let { return powered && it.write(bytes,timeMicros) }
         motion?.let { return powered && it.write(bytes) }
         if(!ready(timeMicros)) return false
         if(bytes.isEmpty()) return true
@@ -51,11 +65,17 @@ class I2cDeviceModel(var address:Int,override val ownerId:String,val kind:Kind,
         return true
     }
     fun read(count:Int,environment:EnvironmentState,timeMicros:Long=0):List<Int> {
+        powerMonitor?.let { return if(powered) it.read(count,timeMicros) else emptyList() }
+        gas?.let { return if(powered) it.read(count,timeMicros) else emptyList() }
+        light?.let { return if(powered) it.read(count,timeMicros) else emptyList() }
+        chemistry?.let { return if(powered) it.read(count,timeMicros) else emptyList() }
         motion?.let { return if(powered) it.read(count) else emptyList() }
         if(!ready(timeMicros)) return emptyList()
         return when(kind) {
             Kind.I2C_TEMP_SENSOR -> {
-                if((memory[1] ?: 0) and 1==0) temperatureWord=(environment.temperatureC.coerceIn(-55.0,125.0)*2).roundToInt() shl 7
+                val temperature=localTemperature ?: environment.temperatureC
+                if(!temperature.isFinite() || temperature !in -55.0..125.0) return emptyList()
+                if((memory[1] ?: 0) and 1==0) temperatureWord=(temperature*2).roundToInt() shl 7
                 val value=if(pointer==0) temperatureWord else memory[pointer] ?: 0
                 if(pointer==1) List(count) { value and 255 }
                 else List(count) { if(it%2==0) (value shr 8) and 255 else value and 255 }
@@ -162,8 +182,9 @@ class LcdBackpack {
 }
 
 class SpiDeviceModel(override val ownerId:String,val cs:TerminalRef,
-    val memory:MutableMap<Int,Int> = mutableMapOf(),var pointer:Int=0,val shift:IntArray=IntArray(8)):EmbeddedPeripheral {
-    override val profile=EmbeddedProfiles.profiles.getValue(Kind.SPI_MEMORY)
+    val memory:MutableMap<Int,Int> = mutableMapOf(),var pointer:Int=0,val shift:IntArray=IntArray(8),val kind:Kind=Kind.SPI_MEMORY):EmbeddedPeripheral {
+    override val profile=EmbeddedProfiles.profiles.getValue(kind)
+    val can=if(kind==Kind.MCP2515_CAN) Mcp2515Model() else null
     var powered=false
     var busyUntil=0L
     var writeEnable=false;private set
@@ -173,11 +194,13 @@ class SpiDeviceModel(override val ownerId:String,val cs:TerminalRef,
     private val bytes=mutableListOf<Int>()
     private var address=0
     fun select(active:Boolean,time:Long) {
+        can?.let { it.select(active);return }
         if(selected && !active) finish(time)
         if(!selected && active) { command=-1;bytes.clear();address=0;pointer=0 }
         selected=active
     }
     override fun powerChanged(powered:Boolean,timeMicros:Long) {
+        if(this.powered && !powered) can?.reset()
         if(this.powered && !powered) { selected=false;writeEnable=false;busyUntil=0;command=-1;bytes.clear() }
         this.powered=powered
     }
@@ -202,6 +225,7 @@ class SpiDeviceModel(override val ownerId:String,val cs:TerminalRef,
         }
     }
     fun transfer(byte:Int,time:Long=0):Int {
+        can?.let { return if(powered)it.transfer(byte,time) else 255 }
         if(!selected) return 255
         if(command<0) { command=byte and 255;return 255 }
         if(command==5) return (if(time<busyUntil)1 else 0) or (if(writeEnable)2 else 0) or protection
@@ -221,5 +245,9 @@ class SpiDeviceModel(override val ownerId:String,val cs:TerminalRef,
     }
     override fun inspect(timeMicros:Long)=mapOf("Family" to profile.family,"Power" to powered.toString(),
         "WEL" to writeEnable.toString(),"BUSY" to (timeMicros<busyUntil).toString(),"Command" to "0x${command.toString(16)}",
-        "Programmed bytes" to memory.size.toString(),"Protection" to "0x${protection.toString(16)}")
+        "Programmed bytes" to memory.size.toString(),"Protection" to "0x${protection.toString(16)}").let { state ->
+            can?.let { mapOf("Family" to profile.family,"Power" to powered.toString(),"Mode" to "0x${it.mode.toString(16)}",
+                "CAN bit rate" to it.bitrate.toString(),"Pending frame" to it.pending.toString(),
+                "CANINTF" to "0x${it.registers[0x2C].toString(16)}","TXB0CTRL" to "0x${it.registers[0x30].toString(16)}") } ?: state
+        }
 }

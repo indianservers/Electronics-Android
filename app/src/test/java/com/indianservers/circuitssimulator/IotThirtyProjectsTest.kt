@@ -8,7 +8,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import kotlin.math.roundToInt
 
-/** Thirty applications exercise firmware, wiring, ADC/bus readings and live input edits. */
+/** Application fixtures exercise firmware, wiring, ADC/bus readings and live physical-input edits. */
 @RunWith(Parameterized::class)
 class IotThirtyProjectsTest(private val name: String, private val kind: Kind, private val mode: Int) {
     companion object {
@@ -53,13 +53,15 @@ class IotThirtyProjectsTest(private val name: String, private val kind: Kind, pr
 
     private fun analogProject() {
         val p = IotSensorParts.profiles.getValue(kind)
-        val temperature = listOf(maxOf(p.temperatureMin, 15.0), 25.0, minOf(p.temperatureMax, 70.0))[mode]
+        val independent=p.stimulusKey!="temperatureC"
+        val temperature = if(independent)25.0 else listOf(maxOf(p.temperatureMin, 15.0), 25.0, minOf(p.temperatureMax, 70.0))[mode]
+        val physicalInput=if(independent)p.stimulusMin+(p.stimulusMax-p.stimulusMin)*listOf(.2,.5,.8)[mode] else temperature
         val humidity = listOf(15.0, 50.0, 85.0)[mode]
         val supply = if (kind == Kind.AD22103_SENSOR) 3.3 else 5.0
         fun part(k: Kind, ref: String, params: Map<String, Double> = emptyMap()) =
             PlacedComponent(kind=k, reference=ref, x=0f, y=0f, parameters=params)
         val board = part(Kind.ARDUINO_UNO, "UNO", mapOf("usbPower" to 1.0))
-        val sensor = part(kind, "S1", mapOf("temperatureC" to temperature, "humidityPercent" to humidity))
+        val sensor = part(kind, "S1", mapOf("temperatureC" to temperature, "humidityPercent" to humidity)+(if(independent)mapOf(p.stimulusKey to physicalInput) else emptyMap()))
         val source = part(Kind.SOURCE, "V1", mapOf("voltage" to supply))
         val ground = part(Kind.GROUND, "GND")
         val definition = BoardRegistry.boards.getValue(board.kind)
@@ -73,25 +75,26 @@ class IotThirtyProjectsTest(private val name: String, private val kind: Kind, pr
             wire(sensor, p.outputPin, board, definition.index("A0"))),
             firmware=listOf(FirmwareAttachment(board.id, FirmwareLanguage.ARDUINO_SUBSET, code, true)))
         val session = start(circuit)
-        fun check(t: Double, rh: Double) {
+        fun check(t: Double, rh: Double, input:Double) {
             val result = advance(session, 20_000)
             // Independent nominal transfer, followed by the board's ADC quantization.
-            val stimulus = if (kind == Kind.HIH4030_SENSOR) rh * (1.0546 - .00216*t) else t
+            val stimulus = if(independent)input else if (kind == Kind.HIH4030_SENSOR) rh * (1.0546 - .00216*t) else t
             val voltage = (p.offset + p.slope*stimulus) * (p.referenceSupply?.let { supply/it } ?: 1.0)
             assertEquals(voltage, result.frames.last().result.nodeVoltages.getValue(TerminalRef(sensor.id, p.outputPin)), .002)
             val expected = (voltage / definition.adcReferenceVoltage * ((1 shl definition.adcBits)-1)).roundToInt()
             assertEquals("$name ADC", expected.toDouble(), session.consoleLines().last().toDouble(), 2.0)
         }
-        check(temperature, humidity)
-        val newTemperature = temperature + 5.0
+        check(temperature, humidity, physicalInput)
+        val newTemperature = if(independent)temperature else temperature + 5.0
+        val newInput=if(independent)physicalInput+(p.stimulusMax-p.stimulusMin)*.05 else newTemperature
         val newHumidity = humidity + 5.0
         session.board.updateCircuit(circuit.copy(components=circuit.components.map {
-            if (it.id == sensor.id) it.copy(parameters=it.parameters + mapOf("temperatureC" to newTemperature, "humidityPercent" to newHumidity)) else it
+            if (it.id == sensor.id) it.copy(parameters=it.parameters + mapOf("temperatureC" to newTemperature, "humidityPercent" to newHumidity)+(if(independent)mapOf(p.stimulusKey to newInput) else emptyMap())) else it
         }))
-        check(newTemperature, newHumidity)
+        check(newTemperature, newHumidity, newInput)
         session.reset()
         assertEquals(0L, session.timeMicros)
-        check(newTemperature, newHumidity)
+        check(newTemperature, newHumidity, newInput)
     }
 
     private fun motionProject() {

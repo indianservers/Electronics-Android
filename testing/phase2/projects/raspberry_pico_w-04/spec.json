@@ -1,0 +1,19 @@
+{
+  "application": "Advanced weather station",
+  "applicationNumber": 4,
+  "hasExecutableDesign": false,
+  "board": "RASPBERRY_PICO_W",
+  "classification": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "scope": "No validated barometric-pressure, rainfall and wind sensing models/topology. MPX5010 differential pressure is not a barometer and must not be relabeled as one.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "blocker": "No validated barometric-pressure, rainfall and wind sensing models/topology. MPX5010 differential pressure is not a barometer and must not be relabeled as one.",
+  "sensorInstances": 0,
+  "uniqueSensorPartCount": 0,
+  "uniqueSensorTechnologyCount": 0,
+  "sensorInterfaces": []
+}

@@ -229,6 +229,11 @@ fun DrawScope.drawPhysicalBody(p:PlacedComponent,v:ComponentVisualState,details:
                 drawPath(track,Color(0xFF976748),style=Stroke(3f))
             } else if(details) print(if(p.kind==Kind.THERMISTOR) "NTC" else "PTC",font=10f)
         }
+        Kind.ZE07_CO,Kind.MPX5010_PRESSURE -> {
+            leads(p,34f,28f);body(Color(0xFF246454),-36f,-29f,72f,58f)
+            drawCircle(plastic,13f,Offset(0f,-7f));drawCircle(metal,7f,Offset(0f,-7f))
+            if(details)print(if(p.kind==Kind.ZE07_CO)"ZE07-CO" else "MPX5010",y=23f,font=8f)
+        }
         Kind.HIH4030_SENSOR -> {
             leads(p,26f,35f)
             body(Color(0xFFCEBEA6),-26f,-35f,52f,70f,3f)
@@ -299,11 +304,11 @@ fun DrawScope.drawPhysicalBody(p:PlacedComponent,v:ComponentVisualState,details:
             drawCircle(Blue,2f,Offset(17f,8f))
             if(details) print(MotionSensorParts.profiles.getValue(p.kind).part,y=24f,font=7f)
         }
-        Kind.I2C_TEMP_SENSOR -> {
+        Kind.SCD41_CO2,Kind.BH1750_LIGHT,Kind.EZO_PH,Kind.EZO_EC,Kind.EZO_DO,Kind.I2C_TEMP_SENSOR -> {
             leads(p,34f,26f);body(Color(0xFF18617A),-38f,-30f,76f,60f)
             body(plastic,-12f,-13f,24f,26f,2f)
             repeat(4) { n -> listOf(-1f,1f).forEach { side -> drawLine(metal,Offset(side*12f,-9f+n*6f),Offset(side*18f,-9f+n*6f),2f) } }
-            if(details) print("TEMP",y=24f,font=8f)
+            if(details) print(if(p.kind==Kind.I2C_TEMP_SENSOR)"TEMP" else p.kind.prefix,y=24f,font=8f)
         }
         Kind.LOGIC_INPUT,Kind.LOGIC_OUTPUT -> {
             leads(p,30f,24f);body(Color(0xFF304D3C),-34f,-28f,68f,56f)
@@ -348,7 +353,7 @@ fun DrawScope.drawPhysicalBody(p:PlacedComponent,v:ComponentVisualState,details:
         }
         else -> {
             if(p.kind.isBoard) board(p,details,v)
-            else if(p.kind.category=="Digital" || p.kind in IcParts.pinNames || p.kind in setOf(Kind.OPAMP,Kind.IDEAL_OPAMP,Kind.I2C_EEPROM,Kind.SPI_MEMORY)) chip(p,details)
+            else if(p.kind.category=="Digital" || p.kind in IcParts.pinNames || p.kind in setOf(Kind.OPAMP,Kind.IDEAL_OPAMP,Kind.I2C_EEPROM,Kind.SPI_MEMORY,Kind.INA219_POWER,Kind.MCP2515_CAN)) chip(p,details)
             else return false // Dedicated existing physical passives, LEDs, bulb, coil, ground and junction.
         }
     }

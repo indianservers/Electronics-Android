@@ -27,7 +27,7 @@ private class ParseFailure(val at:Int,message:String):IllegalArgumentException("
 /** A deliberately bounded Arduino-like grammar. No C++ preprocessor, pointers, libraries, or arbitrary calls. */
 object ArduinoSubset {
     val supportedApis=setOf("pinMode","digitalWrite","digitalRead","analogRead","analogWrite",
-        "delay","delayMicroseconds","millis","micros","map","constrain","hex","tone","noTone","pulseIn",
+        "delay","delayMicroseconds","millis","micros","map","constrain","hex","sqrt","atan2","abs","tone","noTone","pulseIn",
         "attachInterrupt","detachInterrupt","digitalPinToInterrupt",
         "Serial.begin","Serial.print","Serial.println","Serial.write","Serial.available","Serial.read",
         "Wire.begin","Wire.beginTransmission","Wire.write","Wire.endTransmission","Wire.requestFrom",
@@ -36,7 +36,7 @@ object ArduinoSubset {
     private val arity=mapOf("pinMode" to 2,"digitalWrite" to 2,"digitalRead" to 1,
         "analogRead" to 1,"analogWrite" to 2,"delay" to 1,"delayMicroseconds" to 1,"millis" to 0,"micros" to 0,
         "attachInterrupt" to 3,"detachInterrupt" to 1,"digitalPinToInterrupt" to 1,
-        "map" to 5,"constrain" to 3,"hex" to 1,"tone" to 2,"noTone" to 1,"pulseIn" to 2,
+        "sqrt" to 1,"atan2" to 2,"abs" to 1,"map" to 5,"constrain" to 3,"hex" to 1,"tone" to 2,"noTone" to 1,"pulseIn" to 2,
         "Serial.begin" to 1,"Serial.print" to 1,"Serial.println" to 1,"Serial.write" to 1,
         "Serial.available" to 0,"Serial.read" to 0,"Wire.begin" to 0,"Wire.beginTransmission" to 1,
         "Wire.write" to 1,"Wire.endTransmission" to 0,"Wire.requestFrom" to 2,"Wire.read" to 0,
@@ -200,14 +200,20 @@ object ArduinoSubset {
                     while(i<source.length && (source[i].isLetterOrDigit() || source[i]=='_' || source[i]=='.')) i++
                     out+=Token(source.substring(start,i),line,1);continue
                 }
-                if(c.isDigit()) {
+                if(c.isDigit() || (c=='.' && source.getOrNull(i+1)?.isDigit()==true)) {
                     val start=i
                     while(i<source.length && (source[i].isDigit() || source[i]=='.')) i++
+                    if(source.getOrNull(i) in listOf('e','E')) {
+                        i++;if(source.getOrNull(i) in listOf('+','-'))i++
+                        val exponentStart=i
+                        while(source.getOrNull(i)?.isDigit()==true)i++
+                        if(i==exponentStart)throw ParseFailure(line,"Missing numeric exponent")
+                    }
                     out+=Token(source.substring(start,i),line,3);continue
                 }
                 val pair=source.substring(i,(i+2).coerceAtMost(source.length))
                 if(pair in setOf("==","!=","<=",">=","&&","||","++","--","+=","-=")) { out+=Token(pair,line);i+=2;continue }
-                if(c in "{}();,+-*/%!<>=") { out+=Token(c.toString(),line);i++;continue }
+                if(c in "{}();,+-*/%!<>=&|^") { out+=Token(c.toString(),line);i++;continue }
                 throw ParseFailure(line,"Unexpected character '$c'")
             }
             out+=Token("<EOF>",line)
@@ -320,8 +326,8 @@ object ArduinoSubset {
         }
         private fun expression(minPrecedence:Int=0):Expression {
             var left=when {
-                accept("!") -> Expression.Unary("!",expression(7))
-                accept("-") -> Expression.Unary("-",expression(7))
+                accept("!") -> Expression.Unary("!",expression(10))
+                accept("-") -> Expression.Unary("-",expression(10))
                 accept("(") -> expression().also { expect(")") }
                 at.kind==3 -> Expression.Literal(take().text.toDoubleOrNull()
                     ?: throw ParseFailure(at.line,"Invalid number"))
@@ -332,9 +338,9 @@ object ArduinoSubset {
                 }
                 else -> throw ParseFailure(at.line,"Expected expression")
             }
-            val precedence=mapOf("||" to 1,"&&" to 2,"==" to 3,"!=" to 3,
-                "<" to 4,">" to 4,"<=" to 4,">=" to 4,
-                "+" to 5,"-" to 5,"*" to 6,"/" to 6,"%" to 6)
+            val precedence=mapOf("||" to 1,"&&" to 2,"|" to 3,"^" to 4,"&" to 5,"==" to 6,"!=" to 6,
+                "<" to 7,">" to 7,"<=" to 7,">=" to 7,
+                "+" to 8,"-" to 8,"*" to 9,"/" to 9,"%" to 9)
             while((precedence[at.text] ?: -1)>=minPrecedence) {
                 val op=take().text;val right=expression(precedence.getValue(op)+1)
                 left=Expression.Binary(left,op,right)

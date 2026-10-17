@@ -1,0 +1,77 @@
+{
+  "modeledSensors": 10,
+  "normalTemperaturesC": [
+    13.25,
+    13.75,
+    14.25,
+    14.75,
+    15.25,
+    15.75,
+    16.25,
+    16.75
+  ],
+  "expectedNormalOutputs": {
+    "alarm": 0,
+    "faults": 0,
+    "motion1": 0,
+    "motion0": 0
+  },
+  "supplyBudget": "External logic rail and 5 V rail, each allocated 100 mA; calculated model loads below 20 mA. Not a regulator/thermal model.",
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO"
+  ],
+  "fullDomainStatus": "MODELED_SUBSYSTEM_ONLY",
+  "physicalAccuracyClaim": false,
+  "quorum": 3,
+  "highC": 45,
+  "faultInputs": [
+    "normal",
+    "minimum",
+    "maximum",
+    "out-of-range",
+    "disconnected",
+    "wrong-supply",
+    "communication-collision",
+    "delayed-availability-and-recovery",
+    "invalid-reading",
+    "simultaneous"
+  ],
+  "revision": "v1.1 N8R8",
+  "nominalResolutionC": 0.5,
+  "motionPins": [
+    "IO4",
+    "IO5"
+  ],
+  "datasheetRevision": "SNIS153D",
+  "faultStimuli": {
+    "pirSupplyLossV": 2,
+    "sensorPowerLossV": 0,
+    "wrongSupplyV": 2,
+    "pirWarmupMs": 60000,
+    "outOfRangeC": 126,
+    "invalidReading": "NaN",
+    "minimumC": -55,
+    "collisionAddress": 72,
+    "maximumC": 125
+  },
+  "scope": "Distributed ambient thermal and cabinet security telemetry",
+  "uart": "Serial",
+  "boardId": "ESP32_S3_DEVKIT",
+  "outputPin": "IO6",
+  "id": "esp32_s3_devkit-15",
+  "expectedNormalReadingsC": [
+    13.5,
+    14,
+    14.5,
+    15,
+    15.5,
+    16,
+    16.5,
+    17
+  ],
+  "modelToleranceC": 0,
+  "lowC": -15,
+  "datasheet": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+}

@@ -1,0 +1,181 @@
+{
+  "application": "Fire detection and alarm system",
+  "applicationNumber": 15,
+  "hasExecutableDesign": true,
+  "board": "ESP32_S3_DEVKIT",
+  "classification": "NOT_EXECUTED",
+  "scope": "Multi-zone heat and CO threshold indication; smoke/flame are absent, so full fire detection remains unmodeled.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.1.html",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "sensorInstances": 11,
+  "uniqueSensorPartCount": 4,
+  "uniqueSensorTechnologyCount": 4,
+  "sensorInterfaces": [
+    "ADC",
+    "I2C"
+  ],
+  "sensorKinds": [
+    "ADXL345_ACCEL",
+    "I2C_TEMP_SENSOR",
+    "SCD41_CO2",
+    "ZE07_CO"
+  ],
+  "sensors": [
+    {
+      "id": "T0",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 72,
+        "temperatureC": 25,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T1",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 73,
+        "temperatureC": 25.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T2",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 74,
+        "temperatureC": 26,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T3",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 75,
+        "temperatureC": 26.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T4",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 76,
+        "temperatureC": 27,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T5",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 77,
+        "temperatureC": 27.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T6",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 78,
+        "temperatureC": 28,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T7",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 79,
+        "temperatureC": 28.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "ACC",
+      "kind": "ADXL345_ACCEL",
+      "stimuli": {
+        "accelYG": 0,
+        "accelXG": 0,
+        "address": 83,
+        "accelZG": 1,
+        "vibrationFrequencyHz": 2,
+        "vibrationAmplitudeG": 0
+      },
+      "manufacturer": "Analog Devices",
+      "part": "ADXL345",
+      "source": "https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf"
+    },
+    {
+      "id": "GAS",
+      "kind": "SCD41_CO2",
+      "stimuli": {
+        "address": 98,
+        "co2Ppm": 800,
+        "temperatureC": 25,
+        "humidityPercent": 50
+      },
+      "manufacturer": "Sensirion",
+      "part": "SCD41",
+      "source": "https://sensirion.com/media/documents/48C4B7FB/67FE0194/CD_DS_SCD4x_Datasheet_D1.pdf"
+    },
+    {
+      "id": "ANALOG",
+      "kind": "ZE07_CO",
+      "stimuli": {
+        "temperatureC": 25,
+        "coPpm": 0
+      },
+      "manufacturer": "Winsen",
+      "part": "ZE07-CO",
+      "source": "https://www.winsen-sensor.com/d/files/manual/ze07-co.pdf"
+    }
+  ],
+  "circuitSha256": "330ffccce64d777b9bc4381476a6e34fdd0b5ed19b6028fe28781cb034fc5227",
+  "firmwareRuntime": "ARDUINO_SUBSET, not CPU emulation",
+  "electricalAssumptions": "External ideal rails; explicit wiring/pull-ups/decoupling/dividers/shunts as present. Educational peripheral supply loads are not datasheet power models.",
+  "oracleSource": "PhaseTwoLightValidation.kt / PhaseTwoParkingValidation.kt / AdvancedProjectChecks.kt for individually recorded suites; legacy validators for inherited subsets",
+  "unexecutedFaults": [
+    "Full regulator-current-limit qualification",
+    "Physical thermal damage and semiconductor tolerance distributions",
+    "External hardware comparison"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "application": "Flood and disaster early warning",
+  "applicationNumber": 19,
+  "hasExecutableDesign": true,
+  "board": "ARDUINO_UNO"
+}

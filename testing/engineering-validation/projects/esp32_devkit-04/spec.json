@@ -1,0 +1,77 @@
+{
+  "modeledSensors": 10,
+  "normalTemperaturesC": [
+    10.75,
+    11.25,
+    11.75,
+    12.25,
+    12.75,
+    13.25,
+    13.75,
+    14.25
+  ],
+  "expectedNormalOutputs": {
+    "alarm": 0,
+    "faults": 0,
+    "motion1": 0,
+    "motion0": 0
+  },
+  "supplyBudget": "External logic rail and 5 V rail, each allocated 100 mA; calculated model loads below 20 mA. Not a regulator/thermal model.",
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO"
+  ],
+  "fullDomainStatus": "MODELED_SUBSYSTEM_ONLY",
+  "physicalAccuracyClaim": false,
+  "quorum": 4,
+  "highC": 45,
+  "faultInputs": [
+    "normal",
+    "minimum",
+    "maximum",
+    "out-of-range",
+    "disconnected",
+    "wrong-supply",
+    "communication-collision",
+    "delayed-availability-and-recovery",
+    "invalid-reading",
+    "simultaneous"
+  ],
+  "revision": "V4",
+  "nominalResolutionC": 0.5,
+  "motionPins": [
+    "IO32",
+    "IO33"
+  ],
+  "datasheetRevision": "SNIS153D",
+  "faultStimuli": {
+    "pirSupplyLossV": 2,
+    "sensorPowerLossV": 0,
+    "wrongSupplyV": 2,
+    "pirWarmupMs": 60000,
+    "outOfRangeC": 126,
+    "invalidReading": "NaN",
+    "minimumC": -55,
+    "collisionAddress": 72,
+    "maximumC": 125
+  },
+  "scope": "Distributed ambient temperature extremes and enclosure intrusion",
+  "uart": "Serial",
+  "boardId": "ESP32_DEVKIT",
+  "outputPin": "IO25",
+  "id": "esp32_devkit-04",
+  "expectedNormalReadingsC": [
+    11,
+    11.5,
+    12,
+    12.5,
+    13,
+    13.5,
+    14,
+    14.5
+  ],
+  "modelToleranceC": 0,
+  "lowC": -20,
+  "datasheet": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+}

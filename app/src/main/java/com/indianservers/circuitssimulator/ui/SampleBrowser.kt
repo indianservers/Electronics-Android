@@ -65,7 +65,14 @@ private val sampleEntries=listOf(
     SampleEntry("NodeMCU LDR","Firmware","A0 light sensor on NodeMCU",SampleCircuits::nodeMcuLdr)
 ) + MotionSensorParts.profiles.values.map { profile ->
     SampleEntry("${profile.part} Motion Lab","Sensors","ESP32 I2C ${if(profile.gyro) "gyroscope" else "accelerometer"} with editable motion",{MotionSensorExamples.circuit(profile.kind)})
-}
+} + listOf(8 to "Water Treatment Chemistry",16 to "Chemical Process Monitoring",18 to "Aquaculture Oxygen Monitoring").map { (number,title) ->
+    SampleEntry(title,"Sensors","Ten independent EZO probes with ASCII I2C firmware",{com.indianservers.circuitssimulator.firmware.ChemistryProjects.circuit(com.indianservers.circuitssimulator.domain.Kind.ARDUINO_UNO,number)})
+} + listOf(7 to "Air Quality CO and CO2",9 to "Multi-zone Heat and CO",12 to "Robotics Sensor Fusion",19 to "Vibration Condition Monitoring",20 to "Seismic and Flood Monitoring").map { (number,title) ->
+    SampleEntry(title,"Sensors","Domain measurements and executable monitoring firmware",{com.indianservers.circuitssimulator.firmware.DomainMonitoringProjects.circuit(com.indianservers.circuitssimulator.domain.Kind.ARDUINO_UNO,number)})
+} + listOf(
+    SampleEntry("Solar and Battery Shunt Monitoring","Sensors","Ten solved shunt channels and charge integration",{com.indianservers.circuitssimulator.firmware.PowerMonitoringProjects.circuit(com.indianservers.circuitssimulator.domain.Kind.ARDUINO_UNO)}),
+    SampleEntry("Vehicle CAN Diagnostic Monitoring","Firmware","Two MCUs, ten sensors and wired CAN diagnostics",{com.indianservers.circuitssimulator.firmware.VehicleProjects.circuit(com.indianservers.circuitssimulator.domain.Kind.ARDUINO_UNO)})
+)
 
 @Composable
 fun SampleBrowser(model:SimulatorViewModel) {

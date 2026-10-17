@@ -1,0 +1,6 @@
+{
+  "application": "Smart streetlight monitoring",
+  "applicationNumber": 16,
+  "hasExecutableDesign": true,
+  "board": "ESP32_C6_DEVKIT"
+}

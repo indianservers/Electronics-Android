@@ -1,0 +1,77 @@
+{
+  "modeledSensors": 10,
+  "normalTemperaturesC": [
+    20.75,
+    21.25,
+    21.75,
+    22.25,
+    22.75,
+    23.25,
+    23.75,
+    24.25
+  ],
+  "expectedNormalOutputs": {
+    "alarm": 0,
+    "faults": 0,
+    "motion1": 0,
+    "motion0": 0
+  },
+  "supplyBudget": "External logic rail and 5 V rail, each allocated 100 mA; calculated model loads below 20 mA. Not a regulator/thermal model.",
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO"
+  ],
+  "fullDomainStatus": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "physicalAccuracyClaim": false,
+  "quorum": 1,
+  "highC": 45,
+  "faultInputs": [
+    "normal",
+    "minimum",
+    "maximum",
+    "out-of-range",
+    "disconnected",
+    "wrong-supply",
+    "communication-collision",
+    "delayed-availability-and-recovery",
+    "invalid-reading",
+    "simultaneous"
+  ],
+  "revision": "A000062",
+  "nominalResolutionC": 0.5,
+  "motionPins": [
+    "D2",
+    "D3"
+  ],
+  "datasheetRevision": "SNIS153D",
+  "faultStimuli": {
+    "pirSupplyLossV": 2,
+    "sensorPowerLossV": 0,
+    "wrongSupplyV": 2,
+    "pirWarmupMs": 60000,
+    "outOfRangeC": 126,
+    "invalidReading": "NaN",
+    "minimumC": -55,
+    "collisionAddress": 72,
+    "maximumC": 125
+  },
+  "scope": "Battery enclosure thermal protection and access alarm; charge-state estimation unsupported",
+  "uart": "Serial",
+  "boardId": "ARDUINO_DUE",
+  "outputPin": "D4",
+  "id": "arduino_due-10",
+  "expectedNormalReadingsC": [
+    21,
+    21.5,
+    22,
+    22.5,
+    23,
+    23.5,
+    24,
+    24.5
+  ],
+  "modelToleranceC": 0,
+  "lowC": 0,
+  "datasheet": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+}

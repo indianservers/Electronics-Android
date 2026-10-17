@@ -1,0 +1,256 @@
+{
+  "project": "Multi-zone heat and CO detection / Leonardo",
+  "board": "ARDUINO_LEONARDO",
+  "applicationNumber": 9,
+  "scope": "Documented domain-monitoring circuit and bounded firmware model",
+  "firmwareLanguage": "ARDUINO_SUBSET; not native C++",
+  "modelSensors": 11,
+  "normalExpected": {
+    "T0": {
+      "temperatureC": 25.0
+    },
+    "T1": {
+      "temperatureC": 25.5
+    },
+    "T2": {
+      "temperatureC": 26.0
+    },
+    "T3": {
+      "temperatureC": 26.5
+    },
+    "T4": {
+      "temperatureC": 27.0
+    },
+    "T5": {
+      "temperatureC": 27.5
+    },
+    "T6": {
+      "temperatureC": 28.0
+    },
+    "T7": {
+      "temperatureC": 28.5
+    },
+    "co2Ppm": 800,
+    "coPpm": 0,
+    "coModelTolerancePpm": 2
+  },
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO",
+    "ADC"
+  ],
+  "sensors": [
+    {
+      "id": "T0",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 72,
+        "temperatureC": 25,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T1",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 73,
+        "temperatureC": 25.5,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T2",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 74,
+        "temperatureC": 26,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T3",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 75,
+        "temperatureC": 26.5,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T4",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 76,
+        "temperatureC": 27,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T5",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 77,
+        "temperatureC": 27.5,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T6",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 78,
+        "temperatureC": 28,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "T7",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 79,
+        "temperatureC": 28.5,
+        "useEnvironment": 0
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "LM75B",
+        "revision": "SNIS153D",
+        "url": "https://www.ti.com/lit/ds/symlink/lm75b.pdf",
+        "sections": "signed nine-bit temperature register"
+      }
+    },
+    {
+      "id": "ACC",
+      "kind": "ADXL345_ACCEL",
+      "stimuli": {
+        "accelYG": 0,
+        "accelXG": 0,
+        "address": 83,
+        "accelZG": 1,
+        "vibrationFrequencyHz": 2,
+        "vibrationAmplitudeG": 0
+      },
+      "source": {
+        "manufacturer": "Analog Devices",
+        "part": "ADXL345",
+        "revision": "RevG",
+        "url": "https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf",
+        "sections": "data format, power control, output registers"
+      }
+    },
+    {
+      "id": "GAS",
+      "kind": "SCD41_CO2",
+      "stimuli": {
+        "address": 98,
+        "co2Ppm": 800,
+        "temperatureC": 25,
+        "humidityPercent": 50
+      },
+      "source": {
+        "manufacturer": "Sensirion",
+        "part": "SCD41",
+        "revision": "V1.7 April 2025",
+        "url": "https://sensirion.com/media/documents/48C4B7FB/67FE0194/CD_DS_SCD4x_Datasheet_D1.pdf",
+        "sections": "2.1, 3.6, 3.12"
+      }
+    },
+    {
+      "id": "ANALOG",
+      "kind": "ZE07_CO",
+      "stimuli": {
+        "temperatureC": 25,
+        "coPpm": 0
+      },
+      "source": {
+        "manufacturer": "Winsen",
+        "part": "ZE07-CO",
+        "revision": "V1.7 2020-10-19",
+        "url": "https://www.winsen-sensor.com/d/files/manual/ze07-co.pdf",
+        "sections": "technical parameters, DAC transfer and pins; analog steady-state subset"
+      }
+    }
+  ],
+  "physicalAccuracyClaim": false,
+  "limitationsFile": "scope.txt",
+  "boardSpecifications": "Existing repository profile; board source audit remains separately qualified",
+  "executedJvmScenarios": [
+    "normal,PASSED,5015000",
+    "independent-thermal-0,PASSED,5015000",
+    "independent-thermal-1,PASSED,5015000",
+    "independent-thermal-2,PASSED,5015000",
+    "independent-thermal-3,PASSED,5015000",
+    "independent-thermal-4,PASSED,5015000",
+    "independent-thermal-5,PASSED,5015000",
+    "independent-thermal-6,PASSED,5015000",
+    "independent-thermal-7,PASSED,5015000",
+    "co2-excursion,PASSED,5015000",
+    "co-excursion,PASSED,5015000",
+    "co2-invalid,PASSED,5015000",
+    "analog-supply-loss,PASSED,5015000",
+    "invalid-motion-input,PASSED,5015000",
+    "sensor-supply-loss,PASSED,5015000",
+    "disconnected-acceleration,PASSED,5015000",
+    "save-reload,PASSED,5015000",
+    "reset,PASSED,10030000"
+  ],
+  "circuitSha256": "bc89b859129bd43513f3cde834c1fe86649b98e4edb7543e8b573dba28d61488"
+}

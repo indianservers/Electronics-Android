@@ -1,0 +1,77 @@
+{
+  "modeledSensors": 10,
+  "normalTemperaturesC": [
+    21.25,
+    21.75,
+    22.25,
+    22.75,
+    23.25,
+    23.75,
+    24.25,
+    24.75
+  ],
+  "expectedNormalOutputs": {
+    "alarm": 0,
+    "faults": 0,
+    "motion1": 0,
+    "motion0": 0
+  },
+  "supplyBudget": "External logic rail and 5 V rail, each allocated 100 mA; calculated model loads below 20 mA. Not a regulator/thermal model.",
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO"
+  ],
+  "fullDomainStatus": "MODELED_SUBSYSTEM_ONLY",
+  "physicalAccuracyClaim": false,
+  "quorum": 1,
+  "highC": 26,
+  "faultInputs": [
+    "normal",
+    "minimum",
+    "maximum",
+    "out-of-range",
+    "disconnected",
+    "wrong-supply",
+    "communication-collision",
+    "delayed-availability-and-recovery",
+    "invalid-reading",
+    "simultaneous"
+  ],
+  "revision": "Rev3",
+  "nominalResolutionC": 0.5,
+  "motionPins": [
+    "D2",
+    "D3"
+  ],
+  "datasheetRevision": "SNIS153D",
+  "faultStimuli": {
+    "pirSupplyLossV": 2,
+    "sensorPowerLossV": 0,
+    "wrongSupplyV": 2,
+    "pirWarmupMs": 60000,
+    "outOfRangeC": 126,
+    "invalidReading": "NaN",
+    "minimumC": -55,
+    "collisionAddress": 72,
+    "maximumC": 125
+  },
+  "scope": "Room thermal excursion and restricted-area entry alert; no patient physiology",
+  "uart": "Serial",
+  "boardId": "ARDUINO_UNO",
+  "outputPin": "D4",
+  "id": "arduino_uno-06",
+  "expectedNormalReadingsC": [
+    21.5,
+    22,
+    22.5,
+    23,
+    23.5,
+    24,
+    24.5,
+    25
+  ],
+  "modelToleranceC": 0,
+  "lowC": 20,
+  "datasheet": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+}

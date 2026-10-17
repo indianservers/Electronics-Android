@@ -1,0 +1,19 @@
+{
+  "application": "Battery monitoring and protection",
+  "applicationNumber": 11,
+  "hasExecutableDesign": false,
+  "board": "ESP32_C6_DEVKIT",
+  "classification": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "scope": "Cell electrochemistry/state estimation, balancing and an independently verified protection cutoff/feedback topology are absent. Ideal DC sources plus INA219 charge arithmetic do not establish a battery protection system.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32c6/esp32-c6-devkitc-1/user_guide.html",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "blocker": "Cell electrochemistry/state estimation, balancing and an independently verified protection cutoff/feedback topology are absent. Ideal DC sources plus INA219 charge arithmetic do not establish a battery protection system.",
+  "sensorInstances": 0,
+  "uniqueSensorPartCount": 0,
+  "uniqueSensorTechnologyCount": 0,
+  "sensorInterfaces": []
+}

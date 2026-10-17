@@ -381,18 +381,29 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
     fun nextElectricalEvent(through:Double):Double? { scheduleClocksThrough(through);return engine.events.peekTime() }
     fun settleDc(net:Circuit,drives:List<ExternalDrive>,time:Double):DcResult {
         if(time<engine.nowSeconds) error("Digital clock moved backwards; reset the board session.")
-        if(outputPins.isEmpty()) return DcSolver().solve(net,drives)
+        if(outputPins.isEmpty()) return cachedDc(net,drives)
         scheduleClocksThrough(time)
-        var solved=DcSolver().solve(net,drives+electricalDrives(time))
+        var solved=cachedDc(net,drives+electricalDrives(time))
         repeat(16) {
             if(solved.error!=null) return solved
             val before=electricalDrives(time)
             observeElectrical(time,solved.nodeVoltages)
             val after=electricalDrives(time)
             if(before==after) return solved
-            solved=DcSolver().solve(net,drives+after)
+            solved=cachedDc(net,drives+after)
         }
         return solved
+    }
+
+    private data class DcInput(val circuit:Circuit,val drives:List<ExternalDrive>)
+    private val dcCache=object:LinkedHashMap<DcInput,DcResult>(64,.75f,true) {
+        override fun removeEldestEntry(eldest:MutableMap.MutableEntry<DcInput,DcResult>?)=size>64
+    }
+    private fun cachedDc(net:Circuit,drives:List<ExternalDrive>):DcResult {
+        // DC is a pure operating-point calculation. Digital events and peripheral
+        // timers still run on every call; only identical DC equations are reused.
+        val key=DcInput(net,drives.toList())
+        return dcCache.getOrPut(key) { DcSolver().solve(net,drives) }
     }
 
 }

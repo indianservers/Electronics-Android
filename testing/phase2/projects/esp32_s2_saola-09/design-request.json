@@ -1,0 +1,6 @@
+{
+  "application": "Water quality monitoring",
+  "applicationNumber": 9,
+  "hasExecutableDesign": true,
+  "board": "ESP32_S2_SAOLA"
+}

@@ -1,0 +1,77 @@
+{
+  "modeledSensors": 10,
+  "normalTemperaturesC": [
+    38.25,
+    38.75,
+    39.25,
+    39.75,
+    40.25,
+    40.75,
+    41.25,
+    41.75
+  ],
+  "expectedNormalOutputs": {
+    "alarm": 0,
+    "faults": 0,
+    "motion1": 0,
+    "motion0": 0
+  },
+  "supplyBudget": "External logic rail and 5 V rail, each allocated 100 mA; calculated model loads below 20 mA. Not a regulator/thermal model.",
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO"
+  ],
+  "fullDomainStatus": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "physicalAccuracyClaim": false,
+  "quorum": 2,
+  "highC": 70,
+  "faultInputs": [
+    "normal",
+    "minimum",
+    "maximum",
+    "out-of-range",
+    "disconnected",
+    "wrong-supply",
+    "communication-collision",
+    "delayed-availability-and-recovery",
+    "invalid-reading",
+    "simultaneous"
+  ],
+  "revision": "A000062",
+  "nominalResolutionC": 0.5,
+  "motionPins": [
+    "D2",
+    "D3"
+  ],
+  "datasheetRevision": "SNIS153D",
+  "faultStimuli": {
+    "pirSupplyLossV": 2,
+    "sensorPowerLossV": 0,
+    "wrongSupplyV": 2,
+    "pirWarmupMs": 60000,
+    "outOfRangeC": 126,
+    "invalidReading": "NaN",
+    "minimumC": -55,
+    "collisionAddress": 72,
+    "maximumC": 125
+  },
+  "scope": "Multi-bearing thermal excursion and service access; vibration prognostics unsupported",
+  "uart": "Serial",
+  "boardId": "ARDUINO_DUE",
+  "outputPin": "D4",
+  "id": "arduino_due-19",
+  "expectedNormalReadingsC": [
+    38.5,
+    39,
+    39.5,
+    40,
+    40.5,
+    41,
+    41.5,
+    42
+  ],
+  "modelToleranceC": 0,
+  "lowC": 10,
+  "datasheet": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+}

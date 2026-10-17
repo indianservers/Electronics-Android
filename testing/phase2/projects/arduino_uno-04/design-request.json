@@ -1,0 +1,6 @@
+{
+  "application": "Advanced weather station",
+  "applicationNumber": 4,
+  "hasExecutableDesign": false,
+  "board": "ARDUINO_UNO"
+}

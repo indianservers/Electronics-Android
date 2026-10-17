@@ -1,0 +1,6 @@
+{
+  "application": "Industrial gas safety monitoring",
+  "applicationNumber": 12,
+  "hasExecutableDesign": true,
+  "board": "ESP32_S2_SAOLA"
+}

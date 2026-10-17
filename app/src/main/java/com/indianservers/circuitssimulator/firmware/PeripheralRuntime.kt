@@ -41,6 +41,9 @@ class PeripheralRuntime {
         },environment=env)
     }
     fun drives(circuit:Circuit,result:DcResult?,timeMicros:Long):List<ExternalDrive> {
+        // A hot circuit edit invalidates the last solve. Unknown voltage is not
+        // power loss: wait for a solved rail before changing peripheral state.
+        if(result==null) return emptyList()
         val out=mutableListOf<ExternalDrive>()
         circuit.components.forEach { part ->
             when(part.kind) {
@@ -92,9 +95,13 @@ class PeripheralRuntime {
                     if(trig && !previous) trigSince[part.id]=timeMicros
                     if(previous && !trig && timeMicros-(trigSince[part.id] ?: timeMicros)>=10 &&
                         timeMicros !in (echoStart[part.id] ?: -1)..(echoUntil[part.id] ?: -2)) {
-                        val width=(circuit.environment.distanceCm*58.0).toLong().coerceIn(116,23200)
-                        echoStart[part.id]=timeMicros+200
-                        echoUntil[part.id]=timeMicros+200+width
+                        val local=part.value("useEnvironment")==0.0
+                        val distance=if(local)part.value("distanceCm")else circuit.environment.distanceCm
+                        if(!local || distance.isFinite() && distance in 2.0..400.0){
+                            val width=(distance*58.0).toLong().coerceIn(116,23200)
+                            echoStart[part.id]=timeMicros+200
+                            echoUntil[part.id]=timeMicros+200+width
+                        }else {echoStart.remove(part.id);echoUntil.remove(part.id)}
                     }
                     lastTrig[part.id]=trig
                     val active=timeMicros>=(echoStart[part.id] ?: Long.MAX_VALUE) &&
@@ -111,7 +118,7 @@ class PeripheralRuntime {
                     if(supply in 4.5..12.0) {
                         val since=poweredSince.getOrPut(part.id){timeMicros}
                         val ready=timeMicros-since>=(part.value("warmupMs")*1000).toLong()
-                        val motion=circuit.environment.motion
+                        val motion=if(part.value("useEnvironment")==0.0) part.value("motion")>=.5 else circuit.environment.motion
                         if(ready && motion && (part.value("retrigger")==1.0 || previousMotion[part.id]!=true))
                             pirUntil[part.id]=timeMicros+(part.value("delayMs")*1000).toLong()
                         previousMotion[part.id]=if(ready)motion else false

@@ -1,0 +1,253 @@
+{
+  "project": "Solar / battery shunt monitoring / Micro",
+  "board": "ARDUINO_MICRO",
+  "applicationNumber": 10,
+  "scope": "Documented domain-monitoring circuit and bounded firmware model",
+  "firmwareLanguage": "ARDUINO_SUBSET; not native C++",
+  "modelSensors": 10,
+  "normalExpected": {
+    "S0": {
+      "amps": 0.17982017982017984,
+      "volts": 17.982017982017982,
+      "ampsModelTolerance": 0.00011,
+      "voltsModelTolerance": 0.0041,
+      "powerModelToleranceW": 0.005
+    },
+    "S1": {
+      "amps": 0.17982017982017984,
+      "volts": 17.982017982017982,
+      "ampsModelTolerance": 0.00011,
+      "voltsModelTolerance": 0.0041,
+      "powerModelToleranceW": 0.005
+    },
+    "S2": {
+      "amps": 0.17982017982017984,
+      "volts": 17.982017982017982,
+      "ampsModelTolerance": 0.00011,
+      "voltsModelTolerance": 0.0041,
+      "powerModelToleranceW": 0.005
+    },
+    "S3": {
+      "amps": 0.17982017982017984,
+      "volts": 17.982017982017982,
+      "ampsModelTolerance": 0.00011,
+      "voltsModelTolerance": 0.0041,
+      "powerModelToleranceW": 0.005
+    },
+    "S4": {
+      "amps": 0.17982017982017984,
+      "volts": 17.982017982017982,
+      "ampsModelTolerance": 0.00011,
+      "voltsModelTolerance": 0.0041,
+      "powerModelToleranceW": 0.005
+    },
+    "S5": {
+      "amps": 0.11988011988011989,
+      "volts": 11.988011988011989,
+      "ampsModelTolerance": 0.00011,
+      "voltsModelTolerance": 0.0041,
+      "powerModelToleranceW": 0.005
+    },
+    "S6": {
+      "amps": 0.11988011988011989,
+      "volts": 11.988011988011989,
+      "ampsModelTolerance": 0.00011,
+      "voltsModelTolerance": 0.0041,
+      "powerModelToleranceW": 0.005
+    },
+    "S7": {
+      "amps": 0.11988011988011989,
+      "volts": 11.988011988011989,
+      "ampsModelTolerance": 0.00011,
+      "voltsModelTolerance": 0.0041,
+      "powerModelToleranceW": 0.005
+    },
+    "S8": {
+      "amps": 0.11988011988011989,
+      "volts": 11.988011988011989,
+      "ampsModelTolerance": 0.00011,
+      "voltsModelTolerance": 0.0041,
+      "powerModelToleranceW": 0.005
+    },
+    "S9": {
+      "amps": 0.11988011988011989,
+      "volts": 11.988011988011989,
+      "ampsModelTolerance": 0.00011,
+      "voltsModelTolerance": 0.0041,
+      "powerModelToleranceW": 0.005
+    }
+  },
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO"
+  ],
+  "sensors": [
+    {
+      "id": "S0",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 64
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "INA219",
+        "revision": "SBOS448G December 2015",
+        "url": "https://www.ti.com/lit/ds/symlink/ina219.pdf",
+        "sections": "8.5,8.6 configuration, conversion, calibration and registers"
+      }
+    },
+    {
+      "id": "S1",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 65
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "INA219",
+        "revision": "SBOS448G December 2015",
+        "url": "https://www.ti.com/lit/ds/symlink/ina219.pdf",
+        "sections": "8.5,8.6 configuration, conversion, calibration and registers"
+      }
+    },
+    {
+      "id": "S2",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 66
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "INA219",
+        "revision": "SBOS448G December 2015",
+        "url": "https://www.ti.com/lit/ds/symlink/ina219.pdf",
+        "sections": "8.5,8.6 configuration, conversion, calibration and registers"
+      }
+    },
+    {
+      "id": "S3",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 67
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "INA219",
+        "revision": "SBOS448G December 2015",
+        "url": "https://www.ti.com/lit/ds/symlink/ina219.pdf",
+        "sections": "8.5,8.6 configuration, conversion, calibration and registers"
+      }
+    },
+    {
+      "id": "S4",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 68
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "INA219",
+        "revision": "SBOS448G December 2015",
+        "url": "https://www.ti.com/lit/ds/symlink/ina219.pdf",
+        "sections": "8.5,8.6 configuration, conversion, calibration and registers"
+      }
+    },
+    {
+      "id": "S5",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 69
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "INA219",
+        "revision": "SBOS448G December 2015",
+        "url": "https://www.ti.com/lit/ds/symlink/ina219.pdf",
+        "sections": "8.5,8.6 configuration, conversion, calibration and registers"
+      }
+    },
+    {
+      "id": "S6",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 70
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "INA219",
+        "revision": "SBOS448G December 2015",
+        "url": "https://www.ti.com/lit/ds/symlink/ina219.pdf",
+        "sections": "8.5,8.6 configuration, conversion, calibration and registers"
+      }
+    },
+    {
+      "id": "S7",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 71
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "INA219",
+        "revision": "SBOS448G December 2015",
+        "url": "https://www.ti.com/lit/ds/symlink/ina219.pdf",
+        "sections": "8.5,8.6 configuration, conversion, calibration and registers"
+      }
+    },
+    {
+      "id": "S8",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 72
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "INA219",
+        "revision": "SBOS448G December 2015",
+        "url": "https://www.ti.com/lit/ds/symlink/ina219.pdf",
+        "sections": "8.5,8.6 configuration, conversion, calibration and registers"
+      }
+    },
+    {
+      "id": "S9",
+      "kind": "INA219_POWER",
+      "stimuli": {
+        "address": 73
+      },
+      "source": {
+        "manufacturer": "Texas Instruments",
+        "part": "INA219",
+        "revision": "SBOS448G December 2015",
+        "url": "https://www.ti.com/lit/ds/symlink/ina219.pdf",
+        "sections": "8.5,8.6 configuration, conversion, calibration and registers"
+      }
+    }
+  ],
+  "physicalAccuracyClaim": false,
+  "limitationsFile": "scope.txt",
+  "boardSpecifications": "Existing repository profile; board source audit remains separately qualified",
+  "executedJvmScenarios": [
+    "normal-solved-shunts,PASSED,155000",
+    "independent-load-0,PASSED,35000",
+    "independent-load-1,PASSED,35000",
+    "independent-load-2,PASSED,35000",
+    "independent-load-3,PASSED,35000",
+    "independent-load-4,PASSED,35000",
+    "independent-load-5,PASSED,35000",
+    "independent-load-6,PASSED,35000",
+    "independent-load-7,PASSED,35000",
+    "independent-load-8,PASSED,35000",
+    "independent-load-9,PASSED,35000",
+    "missing-calibration,PASSED,35000",
+    "under-voltage,PASSED,35000",
+    "over-voltage,PASSED,35000",
+    "sense-outside-common-mode,PASSED,35000",
+    "logic-power-loss,PASSED,25000",
+    "disconnected-shunt-monitor,PASSED,35000",
+    "address-collision,PASSED,25000",
+    "save-reload,PASSED,35000",
+    "reset,PASSED,70000"
+  ],
+  "circuitSha256": "4c9bd00016c480a3c85e7b5ff110c990901142db9e976a8cb8cec0b0b99dc128"
+}

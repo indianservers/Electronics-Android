@@ -6,6 +6,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class IotSensorModelTest {
+    @Test fun tmp37HighTemperatureRequiresThreeVoltSupply() {
+        assertNotNull(iotSensorOutputVoltage(sensor(Kind.TMP37_SENSOR,85.0),2.7))
+        assertNull(iotSensorOutputVoltage(sensor(Kind.TMP37_SENSOR,85.01),2.99))
+        assertNull(iotSensorOutputVoltage(sensor(Kind.TMP37_SENSOR,100.0),2.7))
+        assertEquals(2.0,iotSensorOutputVoltage(sensor(Kind.TMP37_SENSOR,100.0),3.0)!!,1e-9)
+    }
     private fun sensor(kind:Kind,temperature:Double=25.0)=PlacedComponent(
         kind=kind,reference="S1",x=0f,y=0f).let {
         it.copy(parameters=it.parameters+("temperatureC" to temperature))
@@ -15,7 +21,7 @@ class IotSensorModelTest {
         val expected=mapOf(Kind.TMP35_SENSOR to .25,Kind.TMP36_SENSOR to .75,
             Kind.TMP37_SENSOR to .5,Kind.MCP9700_SENSOR to .75,Kind.MCP9701_SENSOR to .8875,
             Kind.AD22100_SENSOR to 1.9375,Kind.AD22103_SENSOR to .95,Kind.HIH4030_SENSOR to 2.35093)
-        assertEquals(8,IotSensorParts.profiles.size)
+        assertTrue(IotSensorParts.profiles.keys.containsAll(expected.keys))
         expected.forEach { (kind,voltage) ->
             assertEquals(kind.name,voltage,iotSensorOutputVoltage(sensor(kind),if(kind==Kind.AD22103_SENSOR) 3.3 else 5.0)!!,1e-9)
         }

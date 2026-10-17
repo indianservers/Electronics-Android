@@ -1,0 +1,19 @@
+{
+  "application": "Smart agriculture and irrigation",
+  "applicationNumber": 2,
+  "hasExecutableDesign": false,
+  "board": "ARDUINO_NANO_33_IOT",
+  "classification": "BLOCKED_UNMODELED_DOMAIN_FUNCTIONS",
+  "scope": "Soil-water content, soil hydraulic response, irrigation flow and valve/pump feedback models are absent. A renamed thermal circuit cannot establish irrigation functionality.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://docs.arduino.cc/hardware/nano-33-iot",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "blocker": "Soil-water content, soil hydraulic response, irrigation flow and valve/pump feedback models are absent. A renamed thermal circuit cannot establish irrigation functionality.",
+  "sensorInstances": 0,
+  "uniqueSensorPartCount": 0,
+  "uniqueSensorTechnologyCount": 0,
+  "sensorInterfaces": []
+}

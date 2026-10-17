@@ -1,0 +1,168 @@
+{
+  "application": "Home security and intrusion detection",
+  "applicationNumber": 6,
+  "hasExecutableDesign": true,
+  "board": "ARDUINO_LEONARDO",
+  "classification": "NOT_EXECUTED",
+  "scope": "Eight thermal zones and two generic PIR inputs through transistor interfaces; intrusion/thermal status. Generic PIR is not manufacturer-verified.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://docs.arduino.cc/resources/pinouts/A000057-full-pinout.pdf",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "sensorInstances": 10,
+  "uniqueSensorPartCount": 2,
+  "uniqueSensorTechnologyCount": 2,
+  "sensorInterfaces": [
+    "GPIO",
+    "I2C"
+  ],
+  "sensorKinds": [
+    "I2C_TEMP_SENSOR",
+    "PIR_SENSOR"
+  ],
+  "sensors": [
+    {
+      "id": "T0",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 72,
+        "temperatureC": 18.25,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T1",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 73,
+        "temperatureC": 18.75,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T2",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 74,
+        "temperatureC": 19.25,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T3",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 75,
+        "temperatureC": 19.75,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T4",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 76,
+        "temperatureC": 20.25,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T5",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 77,
+        "temperatureC": 20.75,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T6",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 78,
+        "temperatureC": 21.25,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T7",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 79,
+        "temperatureC": 21.75,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "P0",
+      "kind": "PIR_SENSOR",
+      "stimuli": {
+        "delayMs": 3000,
+        "warmupMs": 30000,
+        "motion": 0,
+        "retrigger": 1,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Generic module family",
+      "part": "HC-SR501",
+      "source": "https://www.mpja.com/download/31227sc.pdf"
+    },
+    {
+      "id": "P1",
+      "kind": "PIR_SENSOR",
+      "stimuli": {
+        "delayMs": 3000,
+        "warmupMs": 30000,
+        "motion": 0,
+        "retrigger": 1,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Generic module family",
+      "part": "HC-SR501",
+      "source": "https://www.mpja.com/download/31227sc.pdf"
+    }
+  ],
+  "circuitSha256": "cb5fff83ead4e892cd85b622da889521d49eb5d9fa57e04121d20954b1b01146",
+  "firmwareRuntime": "ARDUINO_SUBSET, not CPU emulation",
+  "electricalAssumptions": "External ideal rails; explicit wiring/pull-ups/decoupling/dividers/shunts as present. Educational peripheral supply loads are not datasheet power models.",
+  "oracleSource": "PhaseTwoLightValidation.kt / PhaseTwoParkingValidation.kt / AdvancedProjectChecks.kt for individually recorded suites; legacy validators for inherited subsets",
+  "unexecutedFaults": [
+    "Full regulator-current-limit qualification",
+    "Physical thermal damage and semiconductor tolerance distributions",
+    "External hardware comparison"
+  ]
+}

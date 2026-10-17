@@ -1,0 +1,233 @@
+{
+  "project": "Chemical process / DEVKIT V1.0",
+  "board": "NODEMCU_ESP8266",
+  "applicationNumber": 16,
+  "scope": "Documented domain-monitoring circuit and bounded firmware model",
+  "firmwareLanguage": "ARDUINO_SUBSET; not native C++",
+  "modelSensors": 10,
+  "normalExpected": {
+    "S0": {
+      "quantity": "ph",
+      "value": 5
+    },
+    "S1": {
+      "quantity": "ph",
+      "value": 5
+    },
+    "S2": {
+      "quantity": "ph",
+      "value": 5
+    },
+    "S3": {
+      "quantity": "ph",
+      "value": 5
+    },
+    "S4": {
+      "quantity": "ph",
+      "value": 5
+    },
+    "S5": {
+      "quantity": "conductivity",
+      "value": 3000
+    },
+    "S6": {
+      "quantity": "conductivity",
+      "value": 3000
+    },
+    "S7": {
+      "quantity": "conductivity",
+      "value": 3000
+    },
+    "S8": {
+      "quantity": "oxygen",
+      "value": 4
+    },
+    "S9": {
+      "quantity": "oxygen",
+      "value": 4
+    }
+  },
+  "interfaces": [
+    "I2C",
+    "UART",
+    "GPIO"
+  ],
+  "sensors": [
+    {
+      "id": "S0",
+      "kind": "EZO_PH",
+      "stimuli": {
+        "ph": 5,
+        "address": 32
+      },
+      "source": {
+        "manufacturer": "Atlas Scientific",
+        "part": "EZO-pH",
+        "revision": "V6.2 October 2026",
+        "url": "https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf",
+        "sections": "I2C supply p39, I2C R p47: 900 ms; cover/UART p21: 800 ms, not the modeled interface"
+      }
+    },
+    {
+      "id": "S1",
+      "kind": "EZO_PH",
+      "stimuli": {
+        "ph": 5,
+        "address": 33
+      },
+      "source": {
+        "manufacturer": "Atlas Scientific",
+        "part": "EZO-pH",
+        "revision": "V6.2 October 2026",
+        "url": "https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf",
+        "sections": "I2C supply p39, I2C R p47: 900 ms; cover/UART p21: 800 ms, not the modeled interface"
+      }
+    },
+    {
+      "id": "S2",
+      "kind": "EZO_PH",
+      "stimuli": {
+        "ph": 5,
+        "address": 34
+      },
+      "source": {
+        "manufacturer": "Atlas Scientific",
+        "part": "EZO-pH",
+        "revision": "V6.2 October 2026",
+        "url": "https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf",
+        "sections": "I2C supply p39, I2C R p47: 900 ms; cover/UART p21: 800 ms, not the modeled interface"
+      }
+    },
+    {
+      "id": "S3",
+      "kind": "EZO_PH",
+      "stimuli": {
+        "ph": 5,
+        "address": 35
+      },
+      "source": {
+        "manufacturer": "Atlas Scientific",
+        "part": "EZO-pH",
+        "revision": "V6.2 October 2026",
+        "url": "https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf",
+        "sections": "I2C supply p39, I2C R p47: 900 ms; cover/UART p21: 800 ms, not the modeled interface"
+      }
+    },
+    {
+      "id": "S4",
+      "kind": "EZO_PH",
+      "stimuli": {
+        "ph": 5,
+        "address": 36
+      },
+      "source": {
+        "manufacturer": "Atlas Scientific",
+        "part": "EZO-pH",
+        "revision": "V6.2 October 2026",
+        "url": "https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf",
+        "sections": "I2C supply p39, I2C R p47: 900 ms; cover/UART p21: 800 ms, not the modeled interface"
+      }
+    },
+    {
+      "id": "S5",
+      "kind": "EZO_EC",
+      "stimuli": {
+        "conductivity": 3000,
+        "address": 37
+      },
+      "source": {
+        "manufacturer": "Atlas Scientific",
+        "part": "EZO-EC",
+        "revision": "V6.7 July 2026",
+        "url": "https://files.atlas-scientific.com/EC_EZO_Datasheet.pdf",
+        "sections": "I2C supply p40, single R read p48: 600 ms; EC-only output"
+      }
+    },
+    {
+      "id": "S6",
+      "kind": "EZO_EC",
+      "stimuli": {
+        "conductivity": 3000,
+        "address": 38
+      },
+      "source": {
+        "manufacturer": "Atlas Scientific",
+        "part": "EZO-EC",
+        "revision": "V6.7 July 2026",
+        "url": "https://files.atlas-scientific.com/EC_EZO_Datasheet.pdf",
+        "sections": "I2C supply p40, single R read p48: 600 ms; EC-only output"
+      }
+    },
+    {
+      "id": "S7",
+      "kind": "EZO_EC",
+      "stimuli": {
+        "conductivity": 3000,
+        "address": 39
+      },
+      "source": {
+        "manufacturer": "Atlas Scientific",
+        "part": "EZO-EC",
+        "revision": "V6.7 July 2026",
+        "url": "https://files.atlas-scientific.com/EC_EZO_Datasheet.pdf",
+        "sections": "I2C supply p40, single R read p48: 600 ms; EC-only output"
+      }
+    },
+    {
+      "id": "S8",
+      "kind": "EZO_DO",
+      "stimuli": {
+        "oxygen": 4,
+        "address": 40
+      },
+      "source": {
+        "manufacturer": "Atlas Scientific",
+        "part": "EZO-DO",
+        "revision": "V5.8 March 2025",
+        "url": "https://files.atlas-scientific.com/DO_EZO_Datasheet.pdf",
+        "sections": "I2C supply p38, single R read p46: 600 ms; mg/L-only output"
+      }
+    },
+    {
+      "id": "S9",
+      "kind": "EZO_DO",
+      "stimuli": {
+        "oxygen": 4,
+        "address": 41
+      },
+      "source": {
+        "manufacturer": "Atlas Scientific",
+        "part": "EZO-DO",
+        "revision": "V5.8 March 2025",
+        "url": "https://files.atlas-scientific.com/DO_EZO_Datasheet.pdf",
+        "sections": "I2C supply p38, single R read p46: 600 ms; mg/L-only output"
+      }
+    }
+  ],
+  "physicalAccuracyClaim": false,
+  "limitationsFile": "scope.txt",
+  "boardSpecifications": "Existing repository profile; board source audit remains separately qualified",
+  "executedJvmScenarios": [
+    "normal,PASSED,925000",
+    "independent-S0,PASSED,925000",
+    "independent-S1,PASSED,925000",
+    "independent-S2,PASSED,925000",
+    "independent-S3,PASSED,925000",
+    "independent-S4,PASSED,925000",
+    "independent-S5,PASSED,925000",
+    "independent-S6,PASSED,925000",
+    "independent-S7,PASSED,925000",
+    "independent-S8,PASSED,925000",
+    "independent-S9,PASSED,925000",
+    "minimum,PASSED,925000",
+    "maximum,PASSED,925000",
+    "nonfinite-injection,PASSED,925000",
+    "address-collision,PASSED,915000",
+    "undervoltage,PASSED,915000",
+    "overvoltage,PASSED,915000",
+    "disconnected,PASSED,925000",
+    "save-reload,PASSED,925000",
+    "reset,PASSED,1850000"
+  ],
+  "circuitSha256": "65461442300ed0c32fdcd7217e09d6bca5d16b4a7f2809d59dd4ebd0e470a469"
+}

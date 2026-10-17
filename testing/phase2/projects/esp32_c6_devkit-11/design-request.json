@@ -1,0 +1,6 @@
+{
+  "application": "Battery monitoring and protection",
+  "applicationNumber": 11,
+  "hasExecutableDesign": false,
+  "board": "ESP32_C6_DEVKIT"
+}

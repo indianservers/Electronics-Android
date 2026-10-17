@@ -1,0 +1,6 @@
+{
+  "application": "Smart building automation",
+  "applicationNumber": 7,
+  "hasExecutableDesign": true,
+  "board": "NODEMCU_ESP8266"
+}

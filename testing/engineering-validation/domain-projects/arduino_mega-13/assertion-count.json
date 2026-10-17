@@ -1,0 +1,26 @@
+{
+  "circuitSha256": "928bf355aeaa37a7fc0d04a4270107dc84adb1f09b8930ef1d56f1d2b6cb0fa8",
+  "assertions": 1213,
+  "scenarios": [
+    "two-controller-normal,PASSED,300000",
+    "ecu-reset,PASSED,600000",
+    "independent-thermal-0,PASSED,300000",
+    "independent-thermal-1,PASSED,300000",
+    "independent-thermal-2,PASSED,300000",
+    "independent-thermal-3,PASSED,300000",
+    "independent-thermal-4,PASSED,300000",
+    "independent-thermal-5,PASSED,300000",
+    "independent-thermal-6,PASSED,300000",
+    "independent-thermal-7,PASSED,300000",
+    "co-excursion,PASSED,300000",
+    "pressure-excursion,PASSED,300000",
+    "remote-i2c-fault,PASSED,300000",
+    "canh-disconnected,PASSED,300000",
+    "termination-loss,PASSED,300000",
+    "transceiver-supply-loss,PASSED,300000",
+    "can-bit-rate-mismatch,PASSED,300000",
+    "can-pair-short,PASSED,300000",
+    "save-reload,PASSED,300000"
+  ],
+  "status": "PASSED_DOMAIN_MONITORING"
+}

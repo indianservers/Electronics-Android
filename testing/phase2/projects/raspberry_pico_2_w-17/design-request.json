@@ -1,0 +1,6 @@
+{
+  "application": "Vehicle diagnostics and monitoring",
+  "applicationNumber": 17,
+  "hasExecutableDesign": true,
+  "board": "RASPBERRY_PICO_2_W"
+}

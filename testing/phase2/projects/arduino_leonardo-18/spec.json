@@ -1,0 +1,164 @@
+{
+  "application": "Cold-chain logistics monitoring",
+  "applicationNumber": 18,
+  "hasExecutableDesign": true,
+  "board": "ARDUINO_LEONARDO",
+  "classification": "NOT_EXECUTED",
+  "scope": "Cold-chain thermal/light/tamper condition monitoring. No refrigeration plant, route/GNSS or logistics network execution.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://docs.arduino.cc/resources/pinouts/A000057-full-pinout.pdf",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "sensorInstances": 10,
+  "uniqueSensorPartCount": 3,
+  "uniqueSensorTechnologyCount": 3,
+  "sensorInterfaces": [
+    "I2C"
+  ],
+  "sensorKinds": [
+    "ADXL345_ACCEL",
+    "BH1750_LIGHT",
+    "I2C_TEMP_SENSOR"
+  ],
+  "sensors": [
+    {
+      "id": "T0",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 72,
+        "temperatureC": 4,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T1",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 73,
+        "temperatureC": 4.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T2",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 74,
+        "temperatureC": 5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T3",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 75,
+        "temperatureC": 5.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T4",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 76,
+        "temperatureC": 6,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T5",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 77,
+        "temperatureC": 6.5,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "T6",
+      "kind": "I2C_TEMP_SENSOR",
+      "stimuli": {
+        "pullupsEnabled": 0,
+        "address": 78,
+        "temperatureC": 7,
+        "useEnvironment": 0
+      },
+      "manufacturer": "Texas Instruments",
+      "part": "LM75B module",
+      "source": "https://www.ti.com/lit/ds/symlink/lm75b.pdf"
+    },
+    {
+      "id": "ACC",
+      "kind": "ADXL345_ACCEL",
+      "stimuli": {
+        "accelYG": 0,
+        "accelXG": 0,
+        "address": 83,
+        "accelZG": 1,
+        "vibrationFrequencyHz": 2,
+        "vibrationAmplitudeG": 0
+      },
+      "manufacturer": "Analog Devices",
+      "part": "ADXL345",
+      "source": "https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf"
+    },
+    {
+      "id": "L0",
+      "kind": "BH1750_LIGHT",
+      "stimuli": {
+        "address": 35,
+        "illuminanceLux": 5
+      },
+      "manufacturer": "ROHM Semiconductor",
+      "part": "BH1750FVI",
+      "source": "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/6165/bh1750fvi-e.pdf"
+    },
+    {
+      "id": "L1",
+      "kind": "BH1750_LIGHT",
+      "stimuli": {
+        "address": 92,
+        "illuminanceLux": 5
+      },
+      "manufacturer": "ROHM Semiconductor",
+      "part": "BH1750FVI",
+      "source": "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/6165/bh1750fvi-e.pdf"
+    }
+  ],
+  "circuitSha256": "87123c08e5480b76d3d481cb2b18d5db70ee0cd8a8d9bf85eadaaf5a3de68b3c",
+  "firmwareRuntime": "ARDUINO_SUBSET, not CPU emulation",
+  "electricalAssumptions": "External ideal rails; explicit wiring/pull-ups/decoupling/dividers/shunts as present. Educational peripheral supply loads are not datasheet power models.",
+  "oracleSource": "PhaseTwoLightValidation.kt / PhaseTwoParkingValidation.kt / AdvancedProjectChecks.kt for individually recorded suites; legacy validators for inherited subsets",
+  "unexecutedFaults": [
+    "Full regulator-current-limit qualification",
+    "Physical thermal damage and semiconductor tolerance distributions",
+    "External hardware comparison"
+  ]
+}

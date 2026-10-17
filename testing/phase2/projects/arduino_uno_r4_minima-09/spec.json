@@ -1,0 +1,146 @@
+{
+  "application": "Water quality monitoring",
+  "applicationNumber": 9,
+  "hasExecutableDesign": true,
+  "board": "ARDUINO_UNO_R4_MINIMA",
+  "classification": "NOT_EXECUTED",
+  "scope": "Calibrated pH/EC/DO polling. No turbidity, flow, treatment chemistry or fluid/process dynamics.",
+  "fullHardwareQualification": false,
+  "boardSource": "https://docs.arduino.cc/resources/pinouts/ABX00080-full-pinout.pdf",
+  "boardManufacturerAudit": "NOT_FULLY_REAUDITED",
+  "nativeFirmware": "Separate native artifacts only when actually compiled",
+  "requiredMinimumSensorInstances": 10,
+  "requiredIndividualSensorIsolation": true,
+  "sensorInstances": 10,
+  "uniqueSensorPartCount": 3,
+  "uniqueSensorTechnologyCount": 3,
+  "sensorInterfaces": [
+    "I2C"
+  ],
+  "sensorKinds": [
+    "EZO_DO",
+    "EZO_EC",
+    "EZO_PH"
+  ],
+  "sensors": [
+    {
+      "id": "S0",
+      "kind": "EZO_PH",
+      "stimuli": {
+        "ph": 7.5,
+        "address": 32
+      },
+      "manufacturer": "Atlas Scientific",
+      "part": "EZO-pH",
+      "source": "https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf"
+    },
+    {
+      "id": "S1",
+      "kind": "EZO_PH",
+      "stimuli": {
+        "ph": 7.5,
+        "address": 33
+      },
+      "manufacturer": "Atlas Scientific",
+      "part": "EZO-pH",
+      "source": "https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf"
+    },
+    {
+      "id": "S2",
+      "kind": "EZO_PH",
+      "stimuli": {
+        "ph": 7.5,
+        "address": 34
+      },
+      "manufacturer": "Atlas Scientific",
+      "part": "EZO-pH",
+      "source": "https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf"
+    },
+    {
+      "id": "S3",
+      "kind": "EZO_PH",
+      "stimuli": {
+        "ph": 7.5,
+        "address": 35
+      },
+      "manufacturer": "Atlas Scientific",
+      "part": "EZO-pH",
+      "source": "https://files.atlas-scientific.com/pH_EZO_Datasheet.pdf"
+    },
+    {
+      "id": "S4",
+      "kind": "EZO_EC",
+      "stimuli": {
+        "conductivity": 1000,
+        "address": 36
+      },
+      "manufacturer": "Atlas Scientific",
+      "part": "EZO-EC",
+      "source": "https://files.atlas-scientific.com/EC_EZO_Datasheet.pdf"
+    },
+    {
+      "id": "S5",
+      "kind": "EZO_EC",
+      "stimuli": {
+        "conductivity": 1000,
+        "address": 37
+      },
+      "manufacturer": "Atlas Scientific",
+      "part": "EZO-EC",
+      "source": "https://files.atlas-scientific.com/EC_EZO_Datasheet.pdf"
+    },
+    {
+      "id": "S6",
+      "kind": "EZO_EC",
+      "stimuli": {
+        "conductivity": 1000,
+        "address": 38
+      },
+      "manufacturer": "Atlas Scientific",
+      "part": "EZO-EC",
+      "source": "https://files.atlas-scientific.com/EC_EZO_Datasheet.pdf"
+    },
+    {
+      "id": "S7",
+      "kind": "EZO_EC",
+      "stimuli": {
+        "conductivity": 1000,
+        "address": 39
+      },
+      "manufacturer": "Atlas Scientific",
+      "part": "EZO-EC",
+      "source": "https://files.atlas-scientific.com/EC_EZO_Datasheet.pdf"
+    },
+    {
+      "id": "S8",
+      "kind": "EZO_DO",
+      "stimuli": {
+        "oxygen": 7.5,
+        "address": 40
+      },
+      "manufacturer": "Atlas Scientific",
+      "part": "EZO-DO",
+      "source": "https://files.atlas-scientific.com/DO_EZO_Datasheet.pdf"
+    },
+    {
+      "id": "S9",
+      "kind": "EZO_DO",
+      "stimuli": {
+        "oxygen": 7.5,
+        "address": 41
+      },
+      "manufacturer": "Atlas Scientific",
+      "part": "EZO-DO",
+      "source": "https://files.atlas-scientific.com/DO_EZO_Datasheet.pdf"
+    }
+  ],
+  "circuitSha256": "9e8bde89d0a37f1f9b0c12178b3d951ceccf416bc5ed41dec9162c3262a6a6de",
+  "firmwareRuntime": "ARDUINO_SUBSET, not CPU emulation",
+  "electricalAssumptions": "External ideal rails; explicit wiring/pull-ups/decoupling/dividers/shunts as present. Educational peripheral supply loads are not datasheet power models.",
+  "oracleSource": "PhaseTwoLightValidation.kt / PhaseTwoParkingValidation.kt / AdvancedProjectChecks.kt for individually recorded suites; legacy validators for inherited subsets",
+  "unexecutedFaults": [
+    "Full regulator-current-limit qualification",
+    "Physical thermal damage and semiconductor tolerance distributions",
+    "External hardware comparison"
+  ]
+}

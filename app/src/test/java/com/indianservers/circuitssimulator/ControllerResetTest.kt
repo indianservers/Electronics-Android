@@ -6,6 +6,20 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ControllerResetTest {
+    @Test fun resetReleasesUsbBridgeAndPreservesOtherControllersBridge() {
+        val fabric=ProtocolFabric()
+        val a=TerminalRef("a",0)
+        val b=TerminalRef("b",0)
+        fabric.attachUart("USB_UART:a",a,null)
+        fabric.attachUart("USB_UART:b",b,null)
+        fabric.uart.getValue("USB_UART:a").enqueueTx("stale host input")
+        fabric.waveforms.add(100000,"UART:USB_UART:a",a,5.0)
+        fabric.waveforms.add(100000,"UART:USB_UART:b",b,3.3)
+        fabric.resetController("a")
+        assertFalse(fabric.uart.containsKey("USB_UART:a"))
+        assertTrue(fabric.uart.containsKey("USB_UART:b"))
+        assertEquals(listOf(b),fabric.waveforms.drives(100000).map { it.terminal })
+    }
     @Test fun resetClearsControllerTimingAndDrivesWhilePreservingPeer() {
         val fabric = ProtocolFabric()
         val a = TerminalRef("a", 1)

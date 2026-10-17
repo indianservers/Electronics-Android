@@ -136,6 +136,10 @@ class MotionSensorModel(val kind:Kind) {
         var at=pointer;val step=autoIncrement()
         val addresses=List(count) { val current=at;if(step)at=(at+1) and 255;current }
         if(addresses.any { !readable(it) }) { lastError="Unsupported register read";return emptyList() }
+        val sampleRegisters=if(kind==Kind.ADXL345_ACCEL)0x32..0x37 else if(kind==Kind.LSM6DSOX_IMU)0x22..0x2D else 0x28..0x2D
+        if(addresses.any {it in sampleRegisters} && stimuli.any {(key,value)->(key.startsWith("accel") || key.startsWith("gyro")) && !value.isFinite()}) {
+            lastError="Simulator fault injection: nonfinite motion input";return emptyList()
+        }
         snapshot()
         val data=addresses.map { registers[it] }
         addresses.forEach { address ->

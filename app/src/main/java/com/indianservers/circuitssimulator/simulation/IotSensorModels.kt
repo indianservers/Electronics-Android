@@ -8,11 +8,14 @@ fun iotSensorOutputVoltage(part: PlacedComponent, supply: Double): Double? {
     val temperature=part.value("temperatureC")
     if(!supply.isFinite() || supply !in profile.supplyMin..profile.supplyMax ||
         !temperature.isFinite() || temperature !in profile.temperatureMin..profile.temperatureMax) return null
+    // TMP35/36/37 Rev. H, Table 1: TMP37's 85–100°C extension requires VS >= 3 V.
+    if(part.kind==Kind.TMP37_SENSOR && temperature>85.0 && supply<3.0) return null
     val stimulus=if(part.kind==Kind.HIH4030_SENSOR) {
         val humidity=part.value("humidityPercent")
         if(!humidity.isFinite() || humidity !in 0.0..100.0) return null
         humidity*(1.0546-.00216*temperature)
-    } else temperature
+    } else part.value(profile.stimulusKey)
+    if(!stimulus.isFinite() || stimulus !in profile.stimulusMin..profile.stimulusMax && part.kind!=Kind.HIH4030_SENSOR) return null
     return (profile.offset+profile.slope*stimulus) *
         (profile.referenceSupply?.let { supply/it } ?: 1.0)
 }
