@@ -98,7 +98,6 @@ object ComponentPins {
     Kind.RELAY -> listOf("C+","C−","COM","NO","NC")[pin]
     Kind.RGB_LED -> listOf("R","G","B","K")[pin]
     Kind.SPDT_SWITCH -> listOf("COM","A","B")[pin]
-    Kind.TIMER_555 -> listOf("RESET","GND","OUT")[pin]
     Kind.D_FLIP_FLOP -> listOf("D","CLK","Q")[pin]
     Kind.T_FLIP_FLOP -> listOf("T","CLK","Q")[pin]
     Kind.COUNTER_4 -> listOf("CLK","Q0","Q1","Q2","Q3")[pin]

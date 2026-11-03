@@ -6,7 +6,7 @@ import org.json.JSONObject
 
 /** Stable, versioned document containing topology and presentation coordinates only. */
 object CircuitJson {
-    const val SCHEMA_VERSION = 6
+    const val SCHEMA_VERSION = 7
     const val MAX_DOCUMENT_CHARS = 2_000_000
     const val MAX_COMPONENTS = 512
     const val MAX_WIRES = 4096
@@ -69,6 +69,9 @@ object CircuitJson {
         require(array.length()<=MAX_COMPONENTS) { "Project has too many components" }
         val components = (0 until array.length()).map { i ->
             val p = array.getJSONObject(i); val kind = Kind.valueOf(p.getString("kind"))
+            require(kind!=Kind.TIMER_555 || version>=7) {
+                "This project uses the legacy three-pin 555. Replace it with the eight-pin NE555 and external RC wiring; the original saved file is unchanged."
+            }
             val id=p.getString("id")
             val reference=p.getString("reference")
             val x=p.getDouble("x");val y=p.getDouble("y")

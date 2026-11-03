@@ -52,10 +52,9 @@ object PatternRecognizer {
             }
         } }
         c.components.filter { it.kind==Kind.TIMER_555 }.forEach { timer ->
-            insights+=CircuitInsight("TIMER:${timer.id}","555 timing setting",
-                "${timer.reference} uses a configured oscillator frequency of ${String.format(Locale.US,"%.3g",timer.value("frequency"))} Hz in this simplified model. External RC timing is not inferred from wiring.",
-                setOf(timer.id),listOf(DiagnosticEvidence("Configured frequency",
-                    String.format(Locale.US,"%.3g Hz",timer.value("frequency")))))
+            insights+=CircuitInsight("TIMER:${timer.id}","NE555 external RC timing",
+                "${timer.reference} switches at nominal CONT/2 and CONT thresholds. Wire the external RC network and run transient analysis; CONT defaults to two-thirds of VCC.",
+                setOf(timer.id),listOf(DiagnosticEvidence("Timing model","External RC and latch")))
         }
         val power=input.result?.takeIf { it.error==null }?.readings.orEmpty()
         val hottest=c.components.filter { it.kind==Kind.RESISTOR }.mapNotNull { part ->

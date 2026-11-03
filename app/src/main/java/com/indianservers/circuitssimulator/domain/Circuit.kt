@@ -135,7 +135,7 @@ enum class Kind(val title: String, val prefix: String, val category: String) {
 }
 
 val Kind.isBoard get() = category == "Development Boards"
-val Kind.isDigital get() = (category == "Digital" && this !in setOf(Kind.L293D,Kind.ULN2003)) || isBoard
+val Kind.isDigital get() = (category == "Digital" && this !in setOf(Kind.L293D,Kind.ULN2003,Kind.TIMER_555)) || isBoard
 val Kind.isLogicGate get() = this in setOf(Kind.NOT_GATE,Kind.AND_GATE,Kind.OR_GATE,
     Kind.NAND_GATE,Kind.NOR_GATE,Kind.XOR_GATE,Kind.XNOR_GATE,Kind.BUFFER_GATE)
 
@@ -238,9 +238,6 @@ object ComponentRegistry {
             Parameter("motorConstant","Torque/back-EMF constant","",0.1,0.001,10.0),
             Parameter("inertia","Rotor inertia","kg·m²",0.001,1e-6,1.0),
             Parameter("friction","Viscous friction","",0.001,0.0,1.0))),
-        Definition(Kind.TIMER_555,"Astable 555 output with RESET input",listOf(
-            Parameter("frequency","Oscillation frequency","Hz",10.0,0.1,10000.0),
-            Parameter("duty","High fraction","",0.66,0.01,0.99))),
         Definition(Kind.D_FLIP_FLOP,"Rising-edge D storage",listOf(Parameter("delay","Clock-to-Q delay","s",1e-5,1e-6,0.1))),
         Definition(Kind.T_FLIP_FLOP,"Rising-edge toggle storage",listOf(Parameter("delay","Clock-to-Q delay","s",1e-5,1e-6,0.1))),
         Definition(Kind.COUNTER_4,"Rising-edge four-bit binary counter",listOf(Parameter("delay","Clock-to-output delay","s",1e-5,1e-6,0.1))),

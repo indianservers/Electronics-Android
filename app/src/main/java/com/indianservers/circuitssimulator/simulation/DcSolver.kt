@@ -122,9 +122,12 @@ class DcSolver {
                     stampThyristor(p,IntArray(3) { idx(p,it) },guess,a,b)
                     return@forEach
                 }
-                if(p.kind in setOf(Kind.LM358,Kind.LM741,Kind.COMPARATOR,
+                if(p.kind in setOf(Kind.TIMER_555,Kind.LM358,Kind.LM741,Kind.COMPARATOR,
                         Kind.REGULATOR_7805,Kind.REGULATOR_LM317,Kind.L293D,Kind.ULN2003)) {
-                    stampAnalogIc(p,IntArray(p.terminalCount) { idx(p,it) },guess,a,b)
+                    // Gain continuation gives closed feedback loops a linear starting point.
+                    val model=if(p.kind==Kind.LM358) p.copy(parameters=p.parameters+
+                        ("gain" to minOf(p.value("gain"),Math.pow(1.2,iteration.toDouble())))) else p
+                    stampAnalogIc(model,IntArray(p.terminalCount) { idx(p,it) },guess,a,b)
                     return@forEach
                 }
                 when(p.kind) {
@@ -255,7 +258,7 @@ class DcSolver {
                 previousMatrix?.let { prior -> a.indices.all { a[it].contentEquals(prior[it]) } }==true
             previousMatrix=a;previousVector=b
             guess = if(unchanged) next else DoubleArray(size) { .65 * next[it] + .35 * guess[it] }
-            if (delta < circuit.settings.tolerance) { guess = next; converged = true; break }
+            if (delta < circuit.settings.tolerance && parts.filter { it.kind==Kind.LM358 }.all { Math.pow(1.2,iteration.toDouble())>=it.value("gain") }) { guess = next; converged = true; break }
         }
         val likely=parts.firstOrNull { p -> p.kind in setOf(Kind.LED,Kind.DIODE,Kind.RECTIFIER,
             Kind.NPN_BJT,Kind.PNP_BJT,Kind.NMOS,Kind.PMOS,Kind.OPAMP,Kind.IDEAL_OPAMP) &&
@@ -272,7 +275,7 @@ class DcSolver {
                 return@associate p.id to phaseFiveReading(p,volts)
             if(p.kind in setOf(Kind.SCR,Kind.TRIAC))
                 return@associate p.id to thyristorReading(p,volts)
-            if(p.kind in setOf(Kind.LM358,Kind.LM741,Kind.COMPARATOR,
+            if(p.kind in setOf(Kind.TIMER_555,Kind.LM358,Kind.LM741,Kind.COMPARATOR,
                     Kind.REGULATOR_7805,Kind.REGULATOR_LM317,Kind.L293D,Kind.ULN2003))
                 return@associate p.id to analogIcReading(p,volts)
             val v = when(p.kind) {

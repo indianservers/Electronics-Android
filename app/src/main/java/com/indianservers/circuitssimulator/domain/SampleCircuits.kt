@@ -228,17 +228,14 @@ object SampleCircuits {
     }
 
     fun timerCounterRgb():Circuit {
-        val reset=PlacedComponent(kind=Kind.SOURCE,reference="V1",x=130f,y=590f,
-            parameters=mapOf("voltage" to 3.3))
-        val timer=PlacedComponent(kind=Kind.TIMER_555,reference="U1",x=370f,y=420f,
-            parameters=mapOf("frequency" to 5.0,"duty" to .6))
-        val counter=PlacedComponent(kind=Kind.COUNTER_4,reference="U2",x=620f,y=420f)
-        val led=PlacedComponent(kind=Kind.RGB_LED,reference="RGB1",x=860f,y=420f)
-        val ground=PlacedComponent(kind=Kind.GROUND,reference="GND1",x=490f,y=740f)
-        return Circuit("555 Counter RGB",listOf(reset,timer,counter,led,ground),listOf(
-            wire(reset,0,timer,0),wire(reset,1,ground,0),wire(timer,1,ground,0),
-            wire(timer,2,counter,0),wire(counter,1,led,0),wire(counter,2,led,1),
-            wire(counter,3,led,2),wire(led,3,ground,0)))
+        val base=DatasheetIcExamples.astable()
+        val timer=base.components.first { it.kind==Kind.TIMER_555 }
+        val ground=base.components.first { it.kind==Kind.GROUND }
+        val counter=PlacedComponent(kind=Kind.COUNTER_4,reference="U2",x=1000f,y=430f)
+        val led=PlacedComponent(kind=Kind.RGB_LED,reference="RGB1",x=1250f,y=430f)
+        return base.copy(name="555 Counter RGB",components=base.components+listOf(counter,led),
+            wires=base.wires+listOf(wire(timer,2,counter,0),wire(counter,1,led,0),
+                wire(counter,2,led,1),wire(counter,3,led,2),wire(led,3,ground,0)))
     }
 
     fun transformerDemo():Circuit {

@@ -126,8 +126,10 @@ class ExpandedPartsTest {
         val timer=part(Kind.TIMER_555,"U1")
         val ground=part(Kind.GROUND,"GND1")
         val load=part(Kind.RESISTOR,"R1")
-        val clockCircuit=Circuit("Timer",listOf(timer,load,ground),listOf(
-            wire(timer,0,ground,0),wire(timer,1,ground,0),wire(timer,2,load,0),wire(load,1,ground,0)))
+        val power=part(Kind.SOURCE,"VT").copy(parameters=mapOf("voltage" to 5.0))
+        val clockCircuit=Circuit("Timer",listOf(timer,load,ground,power),listOf(
+            wire(timer,0,ground,0),wire(timer,3,ground,0),wire(timer,2,load,0),wire(load,1,ground,0),
+            wire(power,0,timer,7),wire(power,1,ground,0)))
         val timed=CanvasDigitalSimulator().simulate(clockCircuit,.16,.001)
         assertNull(timed.error)
         assertTrue(timed.frames.all { it.digitalStates[TerminalRef(timer.id,2)]==LogicState.LOW })

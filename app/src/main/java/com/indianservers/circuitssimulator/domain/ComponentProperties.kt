@@ -11,7 +11,7 @@ object ComponentProperties {
     private val integerKeys=setOf("address","waveform","parity","dataBits","stopBits","state","cellCount","baud",
         "writeProtect","retrigger","usbPower","field")
     private val modelKeys=setOf("is","isat","ideality","bf","br","vaf","vth","kp","lambda","gamma",
-        "gain","gbw","outputResistance","inputOffset","thresholdOffset","darkResistance",
+        "gain","gbw","slewRate","inputBias","outputResistance","inputOffset","thresholdOffset","darkResistance",
         "currentAt100Lux","referenceResistance","beta","resistance25C","motorConstant","inertia",
         "dropout","referenceVoltage","triggerVoltage","holdingCurrent","gateResistance","onResistance")
     fun advanced(parameter:Parameter)=parameter.key in modelKeys

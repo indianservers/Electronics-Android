@@ -52,7 +52,9 @@ data class TransientCheckpoint(
     val coilCurrents:Map<String,Double> = emptyMap(),
     val thyristorLatched:Set<String> = emptySet(),
     val digitalShiftRegisters:Map<String,Int> = emptyMap(),
-    val digitalLatchRegisters:Map<String,Int> = emptyMap()
+    val digitalLatchRegisters:Map<String,Int> = emptyMap(),
+    val timerLatches:Map<String,Boolean> = emptyMap(),
+    val lm358History:Map<String,List<Double>> = emptyMap()
 )
 
 fun appendTransient(previous:TransientResult?,next:TransientResult,maxFrames:Int=2000):TransientResult {
@@ -166,6 +168,9 @@ class TransientSolver(private val integration:IntegrationMethod=BackwardEuler) {
                 p.id to (checkpoint?.temperatures?.get(p.id) ?: data.ambientC) else null
         }.toMap().toMutableMap()
         val failedOpen=checkpoint?.failedOpen?.toMutableSet() ?: mutableSetOf()
+        val timers=parts.filter { it.kind==Kind.TIMER_555 }
+        val timerLatches=checkpoint?.timerLatches?.toMutableMap() ?: mutableMapOf()
+        val lmHistory=checkpoint?.lm358History?.toMutableMap() ?: mutableMapOf()
         val frames=ArrayList<TransientFrame>()
         val startTime=checkpoint?.timeSeconds ?: 0.0
         val stopTime=startTime+durationSeconds
@@ -182,6 +187,11 @@ class TransientSolver(private val integration:IntegrationMethod=BackwardEuler) {
                 minOf(candidate,nextDigital-time) else candidate
             val nextTime=time+dt
             val externalDrives=externalDrivesAt(nextTime)
+            // Freeze hysteretic state during Newton; crossing decisions use the last accepted voltages.
+            timers.forEach { p ->
+                val pins=DoubleArray(8) { index(p,it).let { n -> if(n>=0) guess[n] else 0.0 } }
+                timerLatches[p.id]=timerLatch(pins,timerLatches[p.id] ?: false)
+            }
             var solved: DoubleArray?=null
             var converged=false
             for(iteration in 0 until circuit.settings.maxIterations) {
@@ -221,9 +231,10 @@ class TransientSolver(private val integration:IntegrationMethod=BackwardEuler) {
                             p.id in thyristorLatched)
                         return@forEach
                     }
-                    if(p.kind in setOf(Kind.LM358,Kind.LM741,Kind.COMPARATOR,
+                    if(p.kind in setOf(Kind.TIMER_555,Kind.LM358,Kind.LM741,Kind.COMPARATOR,
                             Kind.REGULATOR_7805,Kind.REGULATOR_LM317,Kind.L293D,Kind.ULN2003)) {
-                        stampAnalogIc(p,IntArray(p.terminalCount) { index(p,it) },guess,matrix,rhs)
+                        stampAnalogIc(p,IntArray(p.terminalCount) { index(p,it) },guess,matrix,rhs,
+                            timerLatches[p.id] ?: false,dt,lmHistory[p.id] ?: listOf(0.0,0.0))
                         return@forEach
                     }
                     when(p.kind) {
@@ -369,9 +380,10 @@ class TransientSolver(private val integration:IntegrationMethod=BackwardEuler) {
                     return@associate p.id to phaseFiveReading(p,volts)
                 if(p.kind in setOf(Kind.SCR,Kind.TRIAC))
                     return@associate p.id to thyristorReading(p,volts,p.id in thyristorLatched)
-                if(p.kind in setOf(Kind.LM358,Kind.LM741,Kind.COMPARATOR,
+                if(p.kind in setOf(Kind.TIMER_555,Kind.LM358,Kind.LM741,Kind.COMPARATOR,
                         Kind.REGULATOR_7805,Kind.REGULATOR_LM317,Kind.L293D,Kind.ULN2003))
-                    return@associate p.id to analogIcReading(p,volts)
+                    return@associate p.id to analogIcReading(p,volts,timerLatches[p.id] ?: false,
+                        dt,lmHistory[p.id] ?: listOf(0.0,0.0))
                 val v=when(p.kind) {
                     Kind.VCCS,Kind.VCVS,Kind.CCCS,Kind.CCVS -> volts.getValue(TerminalRef(p.id,2))-
                         volts.getValue(TerminalRef(p.id,3))
@@ -476,6 +488,11 @@ class TransientSolver(private val integration:IntegrationMethod=BackwardEuler) {
                     Health.THERMAL_WARNING else health
                 p.id to Reading(v,i,power,finalHealth,actualTemperature)
             }
+            parts.filter { it.kind==Kind.LM358 }.forEach { p ->
+                val pins=DoubleArray(8) { volts.getValue(TerminalRef(p.id,it)) }
+                lmHistory[p.id]=if(pins[7]-pins[3] in 3.0..30.0)
+                    lm358Targets(p,pins,dt,lmHistory[p.id] ?: listOf(0.0,0.0)) else listOf(0.0,0.0)
+            }
             capHistory.keys.forEach { id ->
                 capCurrentHistory[id]=readings.getValue(id).current
                 capHistory[id]=readings.getValue(id).voltage
@@ -527,7 +544,10 @@ class TransientSolver(private val integration:IntegrationMethod=BackwardEuler) {
                     if(fuseStress.getValue(p.id)>=p.value("i2t")) failedOpen+=p.id
                 }
             }
-            frames+=TransientFrame(nextTime,volts,readings,digitalAt(nextTime,volts))
+            val timerStates=timers.associate { p -> TerminalRef(p.id,2) to
+                (if(volts.getValue(TerminalRef(p.id,2))-volts.getValue(TerminalRef(p.id,0))>=2.0)
+                    LogicState.HIGH else LogicState.LOW) }
+            frames+=TransientFrame(nextTime,volts,readings,digitalAt(nextTime,volts)+timerStates)
             time=nextTime
         }
         if(time<stopTime-1e-12) return TransientResult(error="Transient step limit reached; use a shorter interval.")
@@ -537,7 +557,8 @@ class TransientSolver(private val integration:IntegrationMethod=BackwardEuler) {
             capCurrentHistory.toMap(),inductorHistory.toMap(),inductorVoltageHistory.toMap(),
             resistorStress.toMap(),fuseStress.toMap(),temperature.toMap(),failedOpen.toSet(),guess.toList(),
             motorCurrent.toMap(),motorSpeed.toMap(),transformerCurrent.toMap(),
-            coilCurrents=coilCurrent.toMap(),thyristorLatched=thyristorLatched.toSet()))
+            coilCurrents=coilCurrent.toMap(),thyristorLatched=thyristorLatched.toSet(),
+            timerLatches=timerLatches.toMap(),lm358History=lmHistory.toMap()))
     }
 
 }

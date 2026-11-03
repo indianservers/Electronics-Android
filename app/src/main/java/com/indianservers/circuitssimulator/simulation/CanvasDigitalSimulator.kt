@@ -34,7 +34,7 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
     private val customCombinational=circuit.components.filter { it.kind in setOf(
         Kind.TRI_STATE_BUFFER,Kind.MULTIPLEXER_2,Kind.DEMULTIPLEXER_2,
         Kind.ENCODER_4,Kind.DECODER_2) }
-    private val oscillators=circuit.components.filter { it.kind==Kind.CLOCK || it.kind==Kind.TIMER_555 }
+    private val oscillators=circuit.components.filter { it.kind==Kind.CLOCK }
     private val sequential=circuit.components.filter { it.kind in setOf(
         Kind.D_FLIP_FLOP,Kind.T_FLIP_FLOP,Kind.COUNTER_4,
         Kind.SR_LATCH,Kind.D_LATCH,Kind.JK_FLIP_FLOP) }
@@ -56,7 +56,6 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
     } + dacs.flatMap { part -> (0..1).map { pin ->
         "${part.id}:in$pin" to TerminalRef(part.id,pin) } } +
         logicOutputs.map { "${it.id}:in0" to TerminalRef(it.id,0) } +
-        oscillators.filter { it.kind==Kind.TIMER_555 }.map { "${it.id}:reset" to TerminalRef(it.id,0) }+
         shifts.flatMap { part -> listOf(9,10,11,12,13).map { pin ->
             "${part.id}:in$pin" to TerminalRef(part.id,pin) } }+
         decades.flatMap { part -> listOf(12,13,14).map { pin ->
@@ -74,8 +73,6 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
             (1..4).map { pin -> "${part.id}:q${pin-1}" to TerminalRef(part.id,pin) }
         }.toMap() + adcs.flatMap { part -> (0..1).map { bit ->
             "${part.id}:d$bit" to TerminalRef(part.id,bit+2) } }.toMap() +
-        oscillators.filter { it.kind==Kind.TIMER_555 }.associate {
-            it.id+":out" to TerminalRef(it.id,2) } +
         logicInputs.associate { it.id+":out" to TerminalRef(it.id,0) }+
         shifts.flatMap { part -> (listOf(0,1,2,3,4,5,6,8,14)).map { pin ->
             "${part.id}:pin$pin" to TerminalRef(part.id,pin) } }.toMap()+
@@ -115,7 +112,6 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
     private val counterValues=mutableMapOf<String,Int>()
     private val shiftValues=mutableMapOf<String,Int>()
     private val latchValues=mutableMapOf<String,Int>()
-    private val timerReset=mutableMapOf<String,LogicState>()
     private val groundedDevices=mutableSetOf<String>()
     private var restored=false
 
@@ -126,7 +122,7 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
         oscillators.forEach { clock ->
             val period=1.0/clock.value("frequency")
             val phase=(startTimeSeconds/period)%1.0
-            engine.drive(clock.id+(if(clock.kind==Kind.CLOCK) ":out" else ":osc"),
+            engine.drive(clock.id+":out",
                 if(phase<clock.value("duty")) LogicState.HIGH else LogicState.LOW,
                 startTimeSeconds)
         }
@@ -139,7 +135,7 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
 
     private fun scheduleClocksThrough(stopTime:Double) {
         oscillators.forEach { clock ->
-            val node=clock.id+(if(clock.kind==Kind.CLOCK) ":out" else ":osc")
+            val node=clock.id+":out"
             val frequency=clock.value("frequency")
             val period=1.0/frequency
             var cycle=nextCycles.getValue(clock.id)
@@ -168,7 +164,6 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
             shiftValues.putAll(checkpoint.digitalShiftRegisters)
             latchValues.putAll(checkpoint.digitalLatchRegisters)
             previousClocks.putAll(checkpoint.digitalClockInputs)
-            timerReset.putAll(checkpoint.digitalTimerReset)
             groundedDevices.addAll(checkpoint.digitalGrounded)
             restored=true
         }
@@ -181,11 +176,10 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
             digitalAt={ time,voltages -> observeElectrical(time,voltages) },checkpoint=checkpoint)
         val snapshot=result.checkpoint
         if(snapshot==null) result else result.copy(checkpoint=snapshot.copy(
-            digitalNodes=(inputPins.keys+outputPins.keys+oscillators.filter {
-                it.kind==Kind.TIMER_555 }.map { it.id+":osc" }).associateWith(engine::state),
+            digitalNodes=(inputPins.keys+outputPins.keys).associateWith(engine::state),
             digitalBits=storedBits.toMap(),digitalCounters=counterValues.toMap(),
             digitalShiftRegisters=shiftValues.toMap(),digitalLatchRegisters=latchValues.toMap(),
-            digitalClockInputs=previousClocks.toMap(),digitalTimerReset=timerReset.toMap(),
+            digitalClockInputs=previousClocks.toMap(),
             digitalGrounded=groundedDevices.toSet(),digitalEvents=engine.events.snapshot()))
     }.getOrElse { TransientResult(error=it.message ?: "Digital simulation failed.") }
     private fun electricalDrives(time:Double):List<ExternalDrive> {
@@ -193,17 +187,9 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
                 val digital=outputPins.mapNotNull { (node,pin) ->
                     val owner=pin.componentId
                     val requiresGround=circuit.components.any { it.id==owner &&
-                        it.kind in setOf(Kind.TIMER_555,Kind.ADC_2,Kind.SHIFT_74HC595,Kind.COUNTER_CD4017) }
+                        it.kind in setOf(Kind.ADC_2,Kind.SHIFT_74HC595,Kind.COUNTER_CD4017) }
                     val state=if(requiresGround && owner !in groundedDevices) LogicState.HIGH_Z
-                    else if(node.endsWith(":out") && circuit.components.any {
-                            it.kind==Kind.TIMER_555 && node==it.id+":out" }) {
-                        val id=node.removeSuffix(":out")
-                        when(timerReset[id]) {
-                            LogicState.LOW -> LogicState.LOW
-                            LogicState.HIGH -> engine.state(id+":osc")
-                            else -> LogicState.UNKNOWN
-                        }
-                    } else engine.state(node)
+                    else engine.state(node)
                     AnalogDigitalBridge.drive(state,family)?.let { (voltage,resistance) ->
                         ExternalDrive(pin,voltage,resistance)
                     }
@@ -221,7 +207,7 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
 
     }
     private fun observeElectrical(time:Double,voltages:Map<TerminalRef,Double>):Map<TerminalRef,LogicState> {
-                (adcs+dacs+oscillators.filter { it.kind==Kind.TIMER_555 }).forEach { part ->
+                (adcs+dacs).forEach { part ->
                     val groundPin=TerminalRef(part.id,if(part.kind==Kind.DAC_2) 3 else 1)
                     if(groundPin in wiredPins && abs(voltages.getValue(groundPin))<.1)
                         groundedDevices+=part.id else groundedDevices-=part.id
@@ -240,9 +226,6 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
                     if(sensed!=engine.state(node)) engine.drive(node,sensed,time)
                 }
                 engine.advanceTo(time)
-                oscillators.filter { it.kind==Kind.TIMER_555 }.forEach { timer ->
-                    timerReset[timer.id]=engine.state("${timer.id}:reset")
-                }
                 sequential.forEach { part ->
                     val prior=storedBits[part.id] ?: LogicState.LOW
                     val next=when(part.kind) {
@@ -362,18 +345,10 @@ class CanvasDigitalSession(private val circuit:Circuit,private val transient:Tra
                 engine.advanceTo(time)
                 return (inputPins+outputPins).map { (node,pin) ->
                     pin to if(pin.componentId !in groundedDevices && circuit.components.any {
-                            it.id==pin.componentId && it.kind in setOf(Kind.TIMER_555,Kind.ADC_2,
+                            it.id==pin.componentId && it.kind in setOf(Kind.ADC_2,
                                 Kind.SHIFT_74HC595,Kind.COUNTER_CD4017)
                         }) LogicState.HIGH_Z
-                    else if(node.endsWith(":out") && oscillators.any {
-                            it.kind==Kind.TIMER_555 && node==it.id+":out" }) {
-                        val id=node.removeSuffix(":out")
-                        when(timerReset[id]) {
-                            LogicState.LOW -> LogicState.LOW
-                            LogicState.HIGH -> engine.state(id+":osc")
-                            else -> LogicState.UNKNOWN
-                        }
-                    } else engine.state(node)
+                    else engine.state(node)
                 }.toMap()
 
     }

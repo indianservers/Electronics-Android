@@ -29,7 +29,7 @@ enum class SweepScale { LINEAR, LOGARITHMIC }
 
 /** Complex modified nodal analysis. Sources are unit small-signal phasors; DC batteries are AC ground. */
 class AcSolver {
-    private val unsupported=setOf(Kind.NPN_BJT,Kind.PNP_BJT,Kind.DARLINGTON,Kind.NMOS,Kind.PMOS,
+    private val unsupported=setOf(Kind.TIMER_555,Kind.NPN_BJT,Kind.PNP_BJT,Kind.DARLINGTON,Kind.NMOS,Kind.PMOS,
         Kind.SCR,Kind.TRIAC,Kind.LM358,Kind.LM741,Kind.COMPARATOR,
         Kind.REGULATOR_7805,Kind.REGULATOR_LM317,Kind.L293D,Kind.ULN2003,
         Kind.DC_CURRENT_SOURCE,Kind.SCHOTTKY_DIODE,Kind.RED_LED,Kind.GREEN_LED,

@@ -57,3 +57,5 @@ gradlew.bat assembleDebug assembleRelease
 ```
 
 `connectedDebugAndroidTest` needs an emulator or device. Release has no custom keystore; the project release type does not enable R8. Do not treat `FINAL_PHASE_STATUS.md` as current — it predates the firmware runtime.
+
+NE555, LM358 and L293D now have physical package pins and nominal datasheet-based electrical models. Sample circuits includes RC astable/monostable timers, a dual-op-amp sensor amplifier and a PWM motor driver. See [model scope, manufacturer references and validation](docs/DATASHEET_IC_MODELS.md).

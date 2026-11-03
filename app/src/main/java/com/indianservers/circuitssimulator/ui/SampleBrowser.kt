@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import com.indianservers.circuitssimulator.domain.Circuit
+import com.indianservers.circuitssimulator.domain.DatasheetIcExamples
 import com.indianservers.circuitssimulator.domain.SampleCircuits
 import com.indianservers.circuitssimulator.domain.MotionSensorParts
 import com.indianservers.circuitssimulator.firmware.MotionSensorExamples
@@ -33,6 +34,10 @@ private data class SampleEntry(val title:String,val category:String,val descript
                                val create:()->Circuit)
 
 private val sampleEntries=listOf(
+    SampleEntry("NE555 RC Astable","Transient","External resistors and capacitor set the oscillation",DatasheetIcExamples::astable),
+    SampleEntry("NE555 RC Monostable","Transient","A trigger pulse starts a nominal 110 ms one-shot",DatasheetIcExamples::monostable),
+    SampleEntry("LM358 Sensor Amplifier x10","Analog","Dual op-amp: gain, offset, bandwidth and slew",DatasheetIcExamples::amplifier),
+    SampleEntry("L293D PWM Motor","Transient","Separate supplies, output losses and inductive recirculation",DatasheetIcExamples::motorDriver),
     SampleEntry("LED Demo","Beginner","A battery, switch, resistor, and LED",SampleCircuits::led),
     SampleEntry("Lamp Demo","Beginner","A switched resistive lamp",SampleCircuits::lamp),
     SampleEntry("Voltage Divider","Beginner","Two resistors divide a DC supply",SampleCircuits::divider),

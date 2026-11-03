@@ -26,6 +26,7 @@ class PhaseOneIcTest {
                 Kind.LM358 -> {
                     wires+=listOf(w(power,0,chip,7),w(chip,3,ground,0),
                         w(logic,0,chip,2),w(chip,1,ground,0),
+                        w(chip,4,ground,0),w(chip,5,chip,6),
                         w(chip,0,load,0),w(load,1,ground,0))
                     measured=0
                 }

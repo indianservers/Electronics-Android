@@ -7,7 +7,11 @@ import kotlin.math.abs
 
 /** Pin-level educational IC models. Unused physical pins remain electrically high impedance. */
 internal fun stampAnalogIc(p:PlacedComponent,indices:IntArray,guess:DoubleArray,
-                           a:Array<DoubleArray>,b:DoubleArray) {
+                           a:Array<DoubleArray>,b:DoubleArray,timerHigh:Boolean=false,
+                           dt:Double=0.0,lmPrevious:List<Double> = listOf(0.0,0.0)) {
+    if(p.kind in datasheetIcs) {
+        stampDatasheetIc(p,indices,guess,a,b,timerHigh,dt,lmPrevious);return
+    }
     fun v(pin:Int)=indices[pin].takeIf { it>=0 }?.let { guess[it] } ?: 0.0
     fun branch(first:Int,second:Int,g:Double,ieq:Double=0.0)=
         stampBranch(a,b,indices[first],indices[second],BranchModel(g,ieq))
@@ -35,11 +39,6 @@ internal fun stampAnalogIc(p:PlacedComponent,indices:IntArray,guess:DoubleArray,
         }
     }
     when(p.kind) {
-        Kind.LM358 -> {
-            branch(7,3,1.0/10000.0)
-            amplifier(2,1,0,3,7,1.5)
-            amplifier(4,5,6,3,7,1.5)
-        }
         Kind.LM741 -> {
             branch(6,3,1.0/5000.0)
             amplifier(2,1,5,3,6,1.5)
@@ -71,19 +70,6 @@ internal fun stampAnalogIc(p:PlacedComponent,indices:IntArray,guess:DoubleArray,
                     .coerceAtLeast(0.0)+.005)
             } else branch(1,0,1e-9)
         }
-        Kind.L293D -> {
-            val ground=3
-            branch(15,ground,1.0/10000.0)
-            input(0,ground);input(1,ground);input(6,ground)
-            input(8,ground);input(9,ground);input(14,ground)
-            val powered=v(15)-v(ground)>=4.5 && v(7)-v(ground)>=4.5
-            listOf(Triple(0,1,2),Triple(0,6,5),Triple(8,9,10),Triple(8,14,13)).forEach { (en,signal,out) ->
-                if(powered && v(en)-v(ground)>2.0) {
-                    if(v(signal)-v(ground)>2.0) branch(out,7,1.0/5.0)
-                    else branch(out,ground,1.0/5.0)
-                } else branch(out,ground,1e-9)
-            }
-        }
         Kind.ULN2003 -> {
             (0..6).forEach { channel ->
                 input(channel,7)
@@ -97,7 +83,9 @@ internal fun stampAnalogIc(p:PlacedComponent,indices:IntArray,guess:DoubleArray,
     }
 }
 
-internal fun analogIcReading(p:PlacedComponent,volts:Map<TerminalRef,Double>):Reading {
+internal fun analogIcReading(p:PlacedComponent,volts:Map<TerminalRef,Double>,timerHigh:Boolean=false,
+                             dt:Double=0.0,lmPrevious:List<Double> = listOf(0.0,0.0)):Reading {
+    if(p.kind in datasheetIcs) return datasheetIcReading(p,volts,timerHigh,dt,lmPrevious)
     fun v(pin:Int)=volts[TerminalRef(p.id,pin)] ?: 0.0
     val (supply,ground)=when(p.kind) {
         Kind.LM358 -> 7 to 3;Kind.LM741 -> 6 to 3;Kind.COMPARATOR -> 4 to 2

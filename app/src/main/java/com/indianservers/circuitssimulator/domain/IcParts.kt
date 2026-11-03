@@ -2,6 +2,7 @@ package com.indianservers.circuitssimulator.domain
 
 object IcParts {
     val pinNames=mapOf(
+        Kind.TIMER_555 to listOf("GND","TRIG","OUT","RESET","CONT","THRES","DISCH","VCC"),
         Kind.LM358 to listOf("OUT1","IN1−","IN1+","V−","IN2+","IN2−","OUT2","V+"),
         Kind.LM741 to listOf("OFFSET1","IN−","IN+","V−","OFFSET2","OUT","V+","NC"),
         Kind.COMPARATOR to listOf("IN+","IN−","GND","OUT","V+"),
@@ -21,13 +22,24 @@ object IcParts {
         manufacturer="Texas Instruments",partNumber=part,packageName=packageName,
         referenceUrl=url,sourceNotes=notes,physicalPinOrder=pins)
     val definitions=listOf(
-        Definition(Kind.LM358,"Dual operational amplifier with shared explicit supply pins",listOf(
+        Definition(Kind.TIMER_555,"NE555 eight-pin bipolar timer; wire external timing resistors and capacitor",emptyList(),
+            datasheet=data("NE555P","https://www.ti.com/lit/ds/symlink/ne555.pdf",pinNames.getValue(Kind.TIMER_555),
+                "TI SLFS022K, March 2026. Nominal 25 C behavioral model; physical PDIP-8 pin order.").copy(modelVersion=2,lastVerifiedUtc="2026-11-02"),
+            keywords=listOf("timer","astable","monostable","555"),applications=listOf("RC oscillator","One-shot timer"),
+            limitations=listOf("Comparator/latch state is sampled once per accepted transient step; use a step well below the RC interval. DC shows the reset startup state; use transient for timing.",
+                "Nominal divider, output/drop and discharge fits; propagation delay, temperature spread, noise and physical damage are omitted. Outside 4.5-16 V output drive is disabled.")),
+        Definition(Kind.LM358,"LM358 dual op-amp with shared supplies, dominant pole and slew limiting",listOf(
             Parameter("gain","Open-loop gain","",100000.0,100.0,1e7),
-            Parameter("outputResistance","Output resistance","Ω",10.0,.1,1000.0)),
+            Parameter("gbw","Gain-bandwidth product","Hz",700000.0,1000.0,1e7),
+            Parameter("slewRate","Slew rate","V/s",300000.0,1000.0,1e7),
+            Parameter("inputOffset","Input offset","V",.003,-.007,.007),
+            Parameter("inputBias","Input bias current (out of pin)","A",20e-9,0.0,250e-9),
+            Parameter("outputResistance","Output resistance fit","Ω",50.0,1.0,1000.0)),
             datasheet=data("LM358","https://www.ti.com/lit/ds/symlink/lm358.pdf",pinNames.getValue(Kind.LM358),
-                "Dual op-amp pin order from TI. Rail and common-mode limits are approximated."),
+                "TI SLOS068AB section 5.7, original LM358, not LM358B. Typical 25 C values; output stage is a nominal fit.").copy(modelVersion=2,lastVerifiedUtc="2026-11-02"),
             keywords=listOf("amplifier","dual opamp"),applications=listOf("Sensor amplification"),
-            limitations=listOf("No bandwidth, slew, input bias or common-mode failure model.")),
+            limitations=listOf("3-30 V supply; valid common-mode range V- to V+-1.5 V at 25 C. Out-of-range inputs produce a warning and high-impedance output, not a prediction of phase reversal.",
+                "Single-pole transient response, 0.3 V/us nominal slew, 30 mA source/20 mA sink fit. Temperature drift, noise, recovery and capacitive-load stability omitted; AC sweep unsupported.")),
         Definition(Kind.LM741,"Single op-amp with explicit power rails and physical DIP pins",listOf(
             Parameter("gain","Open-loop gain","",100000.0,100.0,1e7),
             Parameter("outputResistance","Output resistance","Ω",20.0,.1,1000.0)),
@@ -57,9 +69,9 @@ object IcParts {
             limitations=listOf("No current limit, thermal shutdown or ripple rejection.")),
         Definition(Kind.L293D,"Four half-bridge motor-driver outputs controlled by input and enable pins",emptyList(),
             datasheet=data("L293D","https://www.ti.com/lit/ds/symlink/l293.pdf",pinNames.getValue(Kind.L293D),
-                "Quadruple half-H driver; separate logic and motor supplies."),
+                "TI SLRS008D, PDIP-16. Separate supplies, TTL input limits, finite output drops and inductive clamps; nominal current-dependent fits.").copy(modelVersion=2,lastVerifiedUtc="2026-11-02"),
             keywords=listOf("H bridge","motor","driver"),applications=listOf("Motor drive"),
-            limitations=listOf("Idealized rail switching; clamp diodes, saturation and thermal limits omitted.")),
+            limitations=listOf("Nominal 25 C output and clamp fits: 1.4 V source / 1.2 V sink drop and 1.3 V clamp at 600 mA. Overload warnings do not imply current limiting or shutdown. Propagation delay, switching loss and thermal dynamics omitted.")),
         Definition(Kind.ULN2003,"Seven open-collector Darlington sink channels",emptyList(),
             datasheet=data("ULN2003A","https://www.ti.com/lit/ds/symlink/uln2003a.pdf",pinNames.getValue(Kind.ULN2003),
                 "Seven channels; COM is clamp-diode common, not a power input."),

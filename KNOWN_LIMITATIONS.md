@@ -6,7 +6,7 @@ This is an interactive electronics and embedded-systems simulator. It is not a S
 - Modified nodal analysis with a 1e-12 S diagonal shunt (GMIN) and damped Newton updates.
 - Capacitors are open at DC. Inductors are short at DC.
 - Diode, LED, BJT, and MOSFET models are piecewise or educational fits, not manufacturer SPICE decks.
-- Op-amps saturate at their modeled rails. The 555 is a simplified astable, not a full external RC timing network.
+- The NE555 uses physical eight-pin external RC timing; the LM358 and L293D use nominal datasheet-based behavioral fits. Timing resolution, output-stage fits and omitted physical effects are documented in [datasheet IC models](docs/DATASHEET_IC_MODELS.md). Other op-amps retain their existing rail models.
 - RLC is simulated. It is not certified as a Full resonance lab.
 - AC analysis is a linear frequency sweep of supported parts.
 
@@ -27,7 +27,7 @@ This is an interactive electronics and embedded-systems simulator. It is not a S
 
 ## Persistence and privacy
 - Circuits, firmware, and guide progress stay on the device. The manifest requests no network permission.
-- Schema version is 6. A corrupt autosave shows “This circuit could not be fully loaded.” and does not replace the in-memory circuit with partial data from that failed decode.
+- Schema version is 7. Legacy three-pin 555 projects require rebuilding their timer section; a specific load error prevents silent pin reinterpretation. A corrupt autosave shows “This circuit could not be fully loaded.” and does not replace the in-memory circuit with partial data from that failed decode.
 
 ## Engineering project validation
 - `testing/engineering-validation/projects` contains 20 executable thermal/occupancy project variants per board. Each has eight independently stimulated LM75B module instances and two PIR instances, I²C, wired UART, an output, firmware and fault checks.
